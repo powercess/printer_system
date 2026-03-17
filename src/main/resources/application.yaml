@@ -32,7 +32,7 @@ mybatis-plus:
   type-aliases-package: com.powercess.printer_system.entity
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: ${MYBATIS_LOG_IMPL:org.apache.ibatis.logging.stdout.StdOutImpl}
   global-config:
     db-config:
       id-type: auto
