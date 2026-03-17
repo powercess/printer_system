@@ -4,9 +4,10 @@ spring:
   config:
     import: optional:file:.env[.properties]
 
+  
   # DataSource Configuration
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:print_system}?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:print_system}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -75,8 +76,17 @@ springdoc:
     path: /swagger-ui.html
     enabled: true
 
-# Logging Configuration
+# Logging Configuration (controlled by LOG_MODE env variable)
+# LOG_MODE: dev (detailed logs), prod (standard logs), quiet (minimal logs)
 logging:
   level:
-    com.powercess.printer_system: DEBUG
-    org.springframework.web: INFO
+    com.powercess.printer_system: ${LOG_LEVEL_APP:DEBUG}
+    org.springframework.web: ${LOG_LEVEL_WEB:INFO}
+    # Database logs
+    com.zaxxer.hikari: ${LOG_LEVEL_DB:INFO}
+    com.zaxxer.hikari.HikariConfig: ${LOG_LEVEL_DB:INFO}
+    org.springframework.jdbc: ${LOG_LEVEL_DB:INFO}
+    org.springframework.jdbc.datasource: ${LOG_LEVEL_DB:INFO}
+    org.mybatis: ${LOG_LEVEL_DB:INFO}
+    org.apache.ibatis: ${LOG_LEVEL_DB:INFO}
+    java.sql: ${LOG_LEVEL_DB:INFO}
