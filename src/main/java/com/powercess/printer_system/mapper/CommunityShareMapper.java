@@ -1,0 +1,25 @@
+package com.powercess.printer_system.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.powercess.printer_system.entity.CommunityShare;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+
+import java.util.List;
+
+@Mapper
+public interface CommunityShareMapper extends BaseMapper<CommunityShare> {
+
+    @Select("""
+        SELECT cs.*, u.username, u.nickname, f.name as file_name, f.file_path,
+               (SELECT COUNT(*) FROM likes WHERE share_id = cs.id) as like_count,
+               (SELECT COUNT(*) FROM likes WHERE share_id = cs.id AND user_id = #{userId}) > 0 as is_liked
+        FROM community_shares cs
+        LEFT JOIN users u ON cs.user_id = u.id
+        LEFT JOIN files f ON cs.file_id = f.id
+        WHERE cs.deleted_at IS NULL
+        ORDER BY cs.created_at DESC
+        """)
+    List<CommunityShare> findAllWithDetails(@Param("userId") Long userId);
+}

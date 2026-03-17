@@ -1,0 +1,207 @@
+package com.powercess.printer_system.service.impl;
+
+import cn.dev33.satoken.stp.StpUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.powercess.printer_system.dto.PageResult;
+import com.powercess.printer_system.dto.admin.AdminUserCreateRequest;
+import com.powercess.printer_system.dto.admin.AdminUserUpdateRequest;
+import com.powercess.printer_system.entity.FileEntity;
+import com.powercess.printer_system.entity.Order;
+import com.powercess.printer_system.entity.User;
+import com.powercess.printer_system.entity.UserGroup;
+import com.powercess.printer_system.exception.BusinessException;
+import com.powercess.printer_system.mapper.FileMapper;
+import com.powercess.printer_system.mapper.OrderMapper;
+import com.powercess.printer_system.mapper.UserGroupMapper;
+import com.powercess.printer_system.mapper.UserMapper;
+import com.powercess.printer_system.service.AdminService;
+import com.powercess.printer_system.utils.PasswordUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+@RequiredArgsConstructor
+public class AdminServiceImpl implements AdminService {
+
+    private final UserMapper userMapper;
+    private final UserGroupMapper userGroupMapper;
+    private final FileMapper fileMapper;
+    private final OrderMapper orderMapper;
+
+    private void checkAdminPermission(Long adminId) {
+        List<String> roles = StpUtil.getRoleList();
+        if (!roles.contains("管理员")) {
+            throw new BusinessException(403, "权限不足");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createUser(Long adminId, AdminUserCreateRequest request) {
+        checkAdminPermission(adminId);
+
+        if (userMapper.findByUsername(request.username()).isPresent()) {
+            throw new BusinessException(400, "用户名已存在");
+        }
+        if (userMapper.findByEmail(request.email()).isPresent()) {
+            throw new BusinessException(400, "邮箱已被使用");
+        }
+
+        UserGroup group = userGroupMapper.selectById(request.groupId() != null ? request.groupId() : 1L);
+        if (group == null) {
+            throw new BusinessException(400, "用户组不存在");
+        }
+
+        User user = new User();
+        user.setUsername(request.username());
+        user.setEmail(request.email());
+        user.setPasswordHash(PasswordUtil.hash(request.password()));
+        user.setNickname(request.nickname());
+        user.setGroupId(request.groupId() != null ? request.groupId() : 1L);
+        user.setWalletBalance(java.math.BigDecimal.ZERO);
+        user.setCreatedAt(LocalDateTime.now());
+
+        userMapper.insert(user);
+    }
+
+    @Override
+    public PageResult<User> getUsers(Long adminId, int page, int pageSize, String username, Long groupId) {
+        checkAdminPermission(adminId);
+
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        if (username != null && !username.isEmpty()) {
+            wrapper.like(User::getUsername, username);
+        }
+        if (groupId != null) {
+            wrapper.eq(User::getGroupId, groupId);
+        }
+        wrapper.isNull(User::getDeletedAt);
+        wrapper.orderByDesc(User::getCreatedAt);
+
+        IPage<User> pageResult = userMapper.selectPage(
+            new Page<>(page, Math.min(pageSize, 100)), wrapper);
+
+        pageResult.getRecords().forEach(user -> {
+            UserGroup group = userGroupMapper.selectById(user.getGroupId());
+            if (group != null) {
+                user.setGroupName(group.getGroupName());
+            }
+        });
+
+        return PageResult.of(pageResult.getTotal(), page, pageSize, pageResult.getRecords());
+    }
+
+    @Override
+    @Transactional
+    public void updateUser(Long adminId, Long userId, AdminUserUpdateRequest request) {
+        checkAdminPermission(adminId);
+
+        User user = userMapper.findByIdNotDeleted(userId)
+            .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+
+        if (request.groupId() != null) {
+            UserGroup group = userGroupMapper.selectById(request.groupId());
+            if (group == null) {
+                throw new BusinessException(400, "用户组不存在");
+            }
+            user.setGroupId(request.groupId());
+        }
+
+        if (request.nickname() != null) {
+            user.setNickname(request.nickname());
+        }
+        if (request.walletBalance() != null) {
+            user.setWalletBalance(request.walletBalance());
+        }
+
+        user.setUpdatedAt(LocalDateTime.now());
+        userMapper.updateById(user);
+    }
+
+    @Override
+    @Transactional
+    public void deleteUser(Long adminId, Long userId) {
+        checkAdminPermission(adminId);
+
+        User user = userMapper.findByIdNotDeleted(userId)
+            .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+
+        user.setDeletedAt(LocalDateTime.now());
+        userMapper.updateById(user);
+    }
+
+    @Override
+    public PageResult<Map<String, Object>> getFiles(Long adminId, int page, int pageSize, Long userId) {
+        checkAdminPermission(adminId);
+
+        LambdaQueryWrapper<FileEntity> wrapper = new LambdaQueryWrapper<>();
+        if (userId != null) {
+            wrapper.eq(FileEntity::getUserId, userId);
+        }
+        wrapper.orderByDesc(FileEntity::getUploadTime);
+
+        IPage<FileEntity> pageResult = fileMapper.selectPage(
+            new Page<>(page, Math.min(pageSize, 100)), wrapper);
+
+        List<Map<String, Object>> items = pageResult.getRecords().stream()
+            .map(file -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", file.getId());
+                map.put("userId", file.getUserId());
+                map.put("name", file.getName());
+                map.put("pageCount", file.getPageCount());
+                map.put("uploadTime", file.getUploadTime());
+                map.put("filePath", file.getFilePath());
+                return map;
+            })
+            .toList();
+
+        return PageResult.of(pageResult.getTotal(), page, pageSize, items);
+    }
+
+    @Override
+    public PageResult<Order> getOrders(Long adminId, int page, int pageSize, Integer status, Long userId) {
+        checkAdminPermission(adminId);
+
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+        if (status != null) {
+            wrapper.eq(Order::getStatus, status);
+        }
+        if (userId != null) {
+            wrapper.eq(Order::getUserId, userId);
+        }
+        wrapper.orderByDesc(Order::getCreatedAt);
+
+        IPage<Order> pageResult = orderMapper.selectPage(
+            new Page<>(page, Math.min(pageSize, 100)), wrapper);
+
+        return PageResult.of(pageResult.getTotal(), page, pageSize, pageResult.getRecords());
+    }
+
+    @Override
+    public Map<String, Object> getStats(Long adminId) {
+        checkAdminPermission(adminId);
+
+        long totalUsers = userMapper.selectCount(
+            new LambdaQueryWrapper<User>().isNull(User::getDeletedAt));
+        long totalOrders = orderMapper.selectCount(new LambdaQueryWrapper<>());
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalUsers", totalUsers);
+        stats.put("totalOrders", totalOrders);
+        stats.put("totalRevenue", 0.0);
+        stats.put("todayOrders", 0);
+        stats.put("todayRevenue", 0.0);
+        stats.put("activePrinters", 0);
+
+        return stats;
+    }
+}
