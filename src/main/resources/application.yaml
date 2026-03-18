@@ -64,12 +64,13 @@ app:
     password: ${CUPS_PASSWORD:}
     secure: ${CUPS_SECURE:false}
   payment:
-    pid: ${PAY_PID:2131}
-    key: ${PAY_KEY:DDRFD8Y3yXreR1DX31vis14xD3pYEisS}
+    pid: ${PAY_PID:}
+    key: ${PAY_KEY:}
     api-url: ${PAY_API_URL:https://api.payqixiang.cn/mapi.php}
     submit-url: ${PAY_SUBMIT_URL:https://api.payqixiang.cn/submit.php}
     query-url: ${PAY_QUERY_URL:https://api.payqixiang.cn/api.php}
   base-url: ${BASE_URL:https://printer.powercess.com}
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
 
 # SpringDoc OpenAPI Configuration
 springdoc:
@@ -83,7 +84,7 @@ springdoc:
 # LOG_MODE: dev (detailed logs), prod (standard logs), quiet (minimal logs)
 logging:
   level:
-    com.powercess.printer_system: ${LOG_LEVEL_APP:DEBUG}
+    com.powercess.printer_system: ${LOG_LEVEL_APP:INFO}
     org.springframework.web: ${LOG_LEVEL_WEB:INFO}
     # Database logs
     com.zaxxer.hikari: ${LOG_LEVEL_DB:INFO}
