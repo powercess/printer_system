@@ -13,6 +13,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -96,14 +97,16 @@ class GlobalExceptionHandlerTest {
 
     @Test
     @DisplayName("应该处理ConstraintViolationException")
-    @SuppressWarnings("unchecked")
     void shouldHandleConstraintViolationException() {
         ConstraintViolation<?> violation = mock(ConstraintViolation.class);
         when(violation.getMessage()).thenReturn("必须为正数");
 
+        Set<ConstraintViolation<?>> violations = new HashSet<>();
+        violations.add(violation);
+
         ConstraintViolationException exception = new ConstraintViolationException(
             "validation failed",
-            (Set<ConstraintViolation<?>>) Set.of(violation)
+            violations
         );
 
         Result<Void> result = handler.handleConstraintViolationException(exception);

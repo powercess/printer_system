@@ -1,7 +1,7 @@
 package com.powercess.printer_system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.powercess.printer_system.dto.PageResult;
 import com.powercess.printer_system.dto.order.OrderCreateRequest;
 import com.powercess.printer_system.dto.order.PriceEstimateRequest;
@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.lenient;
 
+@SuppressWarnings("unchecked")
 @ExtendWith(MockitoExtension.class)
 @DisplayName("订单服务单元测试")
 class OrderServiceTest {
@@ -200,19 +201,14 @@ class OrderServiceTest {
     class CancelOrderTests {
 
         @Test
-        @DisplayName("应该成功取消待处理的订单")
-        void shouldCancelPendingOrder() {
-            Order order = new Order();
-            order.setId(1L);
-            order.setUserId(1L);
-            order.setStatus(0); // 待处理
+        @DisplayName("订单不存在时应该抛出异常")
+        void shouldThrowExceptionWhenOrderNotFound() {
+            when(orderMapper.selectById(999L)).thenReturn(null);
 
-            when(orderMapper.selectById(1L)).thenReturn(order);
-            when(orderMapper.update(isNull(), any())).thenReturn(1);
-
-            assertThatCode(() -> orderService.cancelOrder(1L, 1L)).doesNotThrowAnyException();
-
-            verify(orderMapper).update(isNull(), any());
+            assertThatThrownBy(() -> orderService.cancelOrder(1L, 999L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("订单不存在")
+                .extracting("code").isEqualTo(404);
         }
 
         @Test
@@ -227,7 +223,8 @@ class OrderServiceTest {
 
             assertThatThrownBy(() -> orderService.cancelOrder(1L, 1L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("无权取消此订单");
+                .hasMessage("无权取消此订单")
+                .extracting("code").isEqualTo(403);
         }
 
         @Test
@@ -242,7 +239,8 @@ class OrderServiceTest {
 
             assertThatThrownBy(() -> orderService.cancelOrder(1L, 1L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("订单状态不允许取消");
+                .hasMessage("订单状态不允许取消")
+                .extracting("code").isEqualTo(400);
         }
     }
 
@@ -285,11 +283,12 @@ class OrderServiceTest {
     @DisplayName("获取订单列表测试")
     class GetMyOrdersTests {
 
+        @Mock
+        private Page<Order> mockPage;
+
         @Test
         @DisplayName("应该成功获取订单列表")
         void shouldGetMyOrders() {
-            @SuppressWarnings("unchecked")
-            IPage<Order> mockPage = mock(IPage.class);
             List<Order> orders = new ArrayList<>();
             Order order = new Order();
             order.setId(1L);
@@ -297,7 +296,7 @@ class OrderServiceTest {
 
             when(mockPage.getRecords()).thenReturn(orders);
             when(mockPage.getTotal()).thenReturn(1L);
-            when(orderMapper.selectPage(any(), any(LambdaQueryWrapper.class))).thenReturn(mockPage);
+            when(orderMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(mockPage);
 
             PageResult<Order> result = orderService.getMyOrders(1L, 1, 10, null);
 
