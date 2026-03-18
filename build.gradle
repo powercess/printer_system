@@ -31,6 +31,7 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
     implementation 'cn.dev33:sa-token-spring-boot4-starter:1.45.0'
     implementation 'com.baomidou:mybatis-plus-spring-boot4-starter:3.5.15'
+    implementation 'org.cups4j:cups4j:0.7.9'
 
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'

@@ -6,11 +6,16 @@ import com.powercess.printer_system.entity.Order;
 import com.powercess.printer_system.exception.BusinessException;
 import com.powercess.printer_system.mapper.FileMapper;
 import com.powercess.printer_system.mapper.OrderMapper;
+import com.powercess.printer_system.service.CupsClientService;
 import com.powercess.printer_system.service.PrinterService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.cups4j.CupsPrinter;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -26,19 +31,35 @@ public class PrinterServiceImpl implements PrinterService {
     private final AppProperties appProperties;
     private final FileMapper fileMapper;
     private final OrderMapper orderMapper;
+    private final CupsClientService cupsClientService;
 
     @Override
     public Map<String, Object> healthCheck() {
         Map<String, Object> result = new HashMap<>();
         try {
-            result.put("status", "ok");
+            boolean connected = cupsClientService.testConnection();
+            result.put("status", connected ? "ok" : "error");
             result.put("cupsHost", appProperties.cups().host());
             result.put("cupsPort", appProperties.cups().port());
-            result.put("printerCount", 0);
-            result.put("printers", List.of());
+            if (connected) {
+                List<CupsPrinter> printers = cupsClientService.getPrinters();
+                result.put("printerCount", printers.size());
+                result.put("printers", printers.stream().map(p -> {
+                    Map<String, Object> info = new HashMap<>();
+                    info.put("name", p.getName());
+                    info.put("state", p.getState());
+                    return info;
+                }).toList());
+            } else {
+                result.put("printerCount", 0);
+                result.put("printers", List.of());
+                result.put("error", "无法连接到CUPS服务");
+            }
         } catch (Exception e) {
             result.put("status", "error");
             result.put("error", e.getMessage());
+            result.put("printerCount", 0);
+            result.put("printers", List.of());
         }
         return result;
     }
@@ -46,47 +67,138 @@ public class PrinterServiceImpl implements PrinterService {
     @Override
     public Map<String, Object> getPrintersStatus() {
         Map<String, Object> result = new HashMap<>();
-        result.put("items", List.of());
+        try {
+            List<CupsPrinter> printers = cupsClientService.getPrinters();
+            List<Map<String, Object>> items = printers.stream().map(printer -> {
+                Map<String, Object> info = new HashMap<>();
+                info.put("name", printer.getName());
+                info.put("description", printer.getDescription());
+                info.put("location", printer.getLocation());
+                info.put("state", printer.getState());
+                info.put("deviceUri", printer.getDeviceURI());
+                return info;
+            }).toList();
+            result.put("items", items);
+            result.put("total", items.size());
+        } catch (Exception e) {
+            log.error("Failed to get printers status: {}", e.getMessage());
+            result.put("items", List.of());
+            result.put("total", 0);
+        }
         return result;
     }
 
     @Override
     public Map<String, Object> getCupsPrinters() {
-        Map<String, Object> result = new HashMap<>();
-        result.put("items", List.of());
-        result.put("total", 0);
-        return result;
+        return getPrintersStatus();
     }
 
     @Override
     public Map<String, Object> getPrinterDetail(String printerName) {
-        throw new BusinessException(404, "打印机 " + printerName + " 不存在");
+        try {
+            CupsPrinter printer = cupsClientService.getPrinter(printerName);
+            if (printer == null) {
+                throw new BusinessException(404, "打印机 " + printerName + " 不存在");
+            }
+            Map<String, Object> info = cupsClientService.getPrinterInfo(printer);
+            // 获取打印任务
+            List<Map<String, Object>> jobs = cupsClientService.getJobs(printer, "not-completed");
+            info.put("jobs", jobs);
+            info.put("jobCount", jobs.size());
+            return info;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to get printer detail: {}", e.getMessage());
+            throw new BusinessException(500, "获取打印机详情失败: " + e.getMessage());
+        }
     }
 
     @Override
     public Map<String, Object> getPrintJobs(String printerName, String whichJobs) {
         Map<String, Object> result = new HashMap<>();
-        result.put("items", List.of());
-        result.put("total", 0);
+        try {
+            List<Map<String, Object>> jobs;
+            if (printerName != null && !printerName.isEmpty()) {
+                CupsPrinter printer = cupsClientService.getPrinter(printerName);
+                if (printer != null) {
+                    jobs = cupsClientService.getJobs(printer, whichJobs);
+                } else {
+                    jobs = List.of();
+                }
+            } else {
+                // 获取所有打印机的任务
+                jobs = new java.util.ArrayList<>();
+                List<CupsPrinter> printers = cupsClientService.getPrinters();
+                for (CupsPrinter printer : printers) {
+                    jobs.addAll(cupsClientService.getJobs(printer, whichJobs));
+                }
+            }
+            result.put("items", jobs);
+            result.put("total", jobs.size());
+        } catch (Exception e) {
+            log.error("Failed to get print jobs: {}", e.getMessage());
+            result.put("items", List.of());
+            result.put("total", 0);
+        }
         return result;
     }
 
     @Override
     public Map<String, Object> getPrintJobDetail(Integer jobId) {
-        throw new BusinessException(404, "打印任务 " + jobId + " 不存在");
+        // cups4j 不直接支持查询单个任务，需要遍历
+        try {
+            List<CupsPrinter> printers = cupsClientService.getPrinters();
+            for (CupsPrinter printer : printers) {
+                List<Map<String, Object>> jobs = cupsClientService.getJobs(printer, "all");
+                for (Map<String, Object> job : jobs) {
+                    if (job.get("id").equals(jobId)) {
+                        return job;
+                    }
+                }
+            }
+            throw new BusinessException(404, "打印任务 " + jobId + " 不存在");
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to get print job detail: {}", e.getMessage());
+            throw new BusinessException(500, "获取打印任务详情失败: " + e.getMessage());
+        }
     }
 
     @Override
     public void cancelPrintJob(Integer jobId) {
         log.info("Canceling print job: {}", jobId);
+        boolean success = cupsClientService.cancelJob(jobId);
+        if (!success) {
+            throw new BusinessException(500, "取消打印任务失败");
+        }
     }
 
     @Override
     public Map<String, Object> print(Long userId, String printerName, String filePath, String title, Map<String, String> options) {
         Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("jobId", System.currentTimeMillis());
-        result.put("message", "打印任务已提交");
+        try {
+            File file = new File(filePath);
+            if (!file.exists()) {
+                throw new BusinessException(404, "文件不存在: " + filePath);
+            }
+
+            int copies = options.containsKey("copies") ? Integer.parseInt(options.get("copies")) : 1;
+            String duplex = options.getOrDefault("sides", "one-sided");
+
+            int jobId = cupsClientService.printFile(printerName, file, title, copies, duplex);
+
+            result.put("success", true);
+            result.put("jobId", jobId);
+            result.put("message", "打印任务已提交");
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Print failed: {}", e.getMessage());
+            result.put("success", false);
+            result.put("message", "打印失败: " + e.getMessage());
+        }
         return result;
     }
 
@@ -97,32 +209,52 @@ public class PrinterServiceImpl implements PrinterService {
         Map<String, Object> result = new HashMap<>();
 
         try {
+            // 获取文件信息
             FileEntity file = fileMapper.findByIdNotDeleted(fileId)
                 .orElseThrow(() -> new BusinessException(404, "文件不存在"));
 
+            // 构建文件路径
             String uploadDir = appProperties.upload().dir();
             Path filePath = Paths.get(uploadDir, file.getFilePath());
-
             log.info("File path: {}", filePath);
 
+            if (!Files.exists(filePath)) {
+                throw new BusinessException(404, "文件不存在: " + filePath);
+            }
+
+            // 获取打印机
+            CupsPrinter printer = cupsClientService.getPrinter(printerName);
+            if (printer == null) {
+                throw new BusinessException(404, "打印机不存在: " + printerName);
+            }
+
+            // 构建打印选项
             Map<String, String> options = new HashMap<>();
+            options.put("copies", String.valueOf(copies != null ? copies : 1));
+            options.put("sides", duplex != null && duplex == 1 ? "two-sided-long-edge" : "one-sided");
             options.put("media", paperSize != null ? paperSize : "A4");
             options.put("ColorModel", colorMode != null && colorMode == 1 ? "RGB" : "Gray");
-            options.put("sides", duplex != null && duplex == 1 ? "two-sided-long-edge" : "one-sided");
-            options.put("copies", String.valueOf(copies != null ? copies : 1));
 
-            result.put("success", true);
-            result.put("jobId", System.currentTimeMillis());
-            result.put("cupsPrinter", printerName != null ? printerName : "default");
-            result.put("message", "打印任务已提交");
+            // 读取文件并打印
+            byte[] content = Files.readAllBytes(filePath);
+            String jobName = "Order-" + orderId + "-" + file.getName();
+            int jobId = cupsClientService.printBytes(printerName, content, jobName, copies, options.get("sides"));
 
+            // 更新订单状态
             Order order = orderMapper.selectById(orderId);
             if (order != null) {
-                order.setStatus(2);
+                order.setStatus(2); // 打印中
                 order.setUpdatedAt(LocalDateTime.now());
                 orderMapper.updateById(order);
             }
 
+            result.put("success", true);
+            result.put("jobId", jobId);
+            result.put("cupsPrinter", printerName);
+            result.put("message", "打印任务已提交");
+
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Print execution failed", e);
             result.put("success", false);
