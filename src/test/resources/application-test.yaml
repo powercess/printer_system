@@ -1,0 +1,58 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.powercess.printer_system.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deletedAt
+      logic-delete-value: "NOW()"
+      logic-not-delete-value: "NULL"
+
+sa-token:
+  token-name: Authorization
+  secret-key: test-secret-key-for-testing
+  timeout: 86400
+  active-timeout: -1
+  is-concurrent: true
+  is-share: true
+  token-style: uuid
+  is-log: false
+  is-read-header: true
+  is-read-cookie: false
+
+app:
+  upload:
+    dir: /tmp/test-uploads
+  payment:
+    pid: test-pid
+    key: test-key
+    api-url: https://test-api.example.com
+    submit-url: https://test-submit.example.com
+    query-url: https://test-query.example.com
+  cups:
+    host: localhost
+    port: 631
+    username: test
+    password: test
+    secure: false
+  base-url: http://localhost:8080
+
+logging:
+  level:
+    com.powercess.printer_system: DEBUG
+    org.springframework.web: INFO

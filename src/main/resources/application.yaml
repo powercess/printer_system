@@ -58,8 +58,11 @@ app:
   upload:
     dir: ${UPLOAD_DIR:./uploads}
   cups:
-    host: ${CUPS_HOST:192.168.1.149}
+    host: ${CUPS_HOST:localhost}
     port: ${CUPS_PORT:631}
+    username: ${CUPS_USERNAME:}
+    password: ${CUPS_PASSWORD:}
+    secure: ${CUPS_SECURE:false}
   payment:
     pid: ${PAY_PID:2131}
     key: ${PAY_KEY:DDRFD8Y3yXreR1DX31vis14xD3pYEisS}
