@@ -151,6 +151,9 @@ import { useUserStore } from "../../stores/user";
 import { useAppToast } from "../../composables/useToast";
 import { useCommunityApi } from "../../api/community";
 import { useFileApi } from "../../api/file";
+import { createPageLogger } from "../../utils/logger";
+
+const log = createPageLogger("community");
 
 const toast = useAppToast();
 const userStore = useUserStore();
@@ -193,6 +196,7 @@ const formatDate = (dateStr: string) => {
 };
 
 const fetchPosts = async () => {
+  log.loadStart("分享列表");
   loading.value = true;
   try {
     const result = await communityApi.getList({
@@ -201,7 +205,9 @@ const fetchPosts = async () => {
     });
     posts.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);
+    log.loadSuccess("分享列表", { count: result.items.length, total: result.total });
   } catch (error) {
+    log.loadError("分享列表", error);
     toast.error("获取分享列表失败");
   } finally {
     loading.value = false;
@@ -213,21 +219,29 @@ const handleShareFileSelect = async (e: Event) => {
   const files = target.files;
   if (!files?.length || !files[0]) return;
 
+  log.userAction("选择分享文件", { fileName: files[0].name });
+
   try {
     const result = await fileApi.upload(files[0]);
     shareForm.fileId = result.file_id;
+    log.success("分享文件上传成功", { fileId: result.file_id });
     toast.success("文件上传成功");
   } catch (error) {
+    log.error("分享文件上传失败", error);
     toast.error("文件上传失败");
   }
 };
 
 const submitShare = async () => {
+  log.formSubmit("分享表单", { title: shareForm.title, hasFile: !!shareForm.fileId });
+
   if (!shareForm.title || !shareForm.content) {
+    log.warn("表单验证失败: 缺少必填字段");
     toast.error("请填写标题和内容");
     return;
   }
 
+  log.userAction("发布分享", { title: shareForm.title });
   submitting.value = true;
   try {
     await communityApi.share({
@@ -236,6 +250,7 @@ const submitShare = async () => {
       file_id: shareForm.fileId || undefined,
     });
 
+    log.success("分享发布成功");
     toast.success("分享成功");
     shareModalOpen.value = false;
     shareForm.title = "";
@@ -243,6 +258,7 @@ const submitShare = async () => {
     shareForm.fileId = null;
     await fetchPosts();
   } catch (error) {
+    log.error("分享发布失败", error);
     toast.error("分享失败");
   } finally {
     submitting.value = false;
@@ -250,19 +266,25 @@ const submitShare = async () => {
 };
 
 const toggleLike = async (post: CommunityPost) => {
+  const action = post.is_liked ? "取消点赞" : "点赞";
+  log.userAction(action, { postId: post.id, title: post.title });
+
   try {
     if (post.is_liked) {
       await communityApi.unlike(post.id);
     } else {
       await communityApi.like(post.id);
     }
+    log.success(`${action}成功`, { postId: post.id });
     await fetchPosts();
   } catch (error) {
+    log.error(`${action}失败`, error);
     toast.error("操作失败");
   }
 };
 
 const confirmDelete = (post: CommunityPost) => {
+  log.debug("确认删除分享", { postId: post.id, title: post.title });
   postToDelete.value = post;
   deleteModalOpen.value = true;
 };
@@ -270,12 +292,15 @@ const confirmDelete = (post: CommunityPost) => {
 const deletePost = async () => {
   if (!postToDelete.value) return;
 
+  log.userAction("删除分享", { postId: postToDelete.value.id, title: postToDelete.value.title });
   deleting.value = true;
   try {
     await communityApi.delete(postToDelete.value.id);
+    log.success("分享删除成功");
     toast.success("已删除");
     await fetchPosts();
   } catch (error) {
+    log.error("分享删除失败", error);
     toast.error("删除失败");
   } finally {
     deleting.value = false;
@@ -285,6 +310,7 @@ const deletePost = async () => {
 };
 
 onMounted(() => {
+  log.mounted();
   fetchPosts();
 });
 </script>

@@ -3,7 +3,7 @@
     <div class="container mx-auto px-4">
       <div class="flex items-center justify-between h-16">
         <!-- Logo -->
-        <NuxtLink to="/" class="flex items-center space-x-2">
+        <NuxtLink to="/" class="flex items-center space-x-2" @click="handleLogoClick">
           <UIcon name="i-heroicons-printer" class="w-8 h-8 text-primary" />
           <span class="text-xl font-bold text-gray-900 dark:text-white">
             自助打印
@@ -18,6 +18,7 @@
             :to="item.to"
             class="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors"
             :class="{ 'text-primary font-medium': isActive(item.to) }"
+            @click="handleNavClick(item)"
           >
             {{ item.label }}
           </NuxtLink>
@@ -28,9 +29,9 @@
           <template v-if="isLoggedIn">
             <div class="flex items-center space-x-3">
               <UBadge color="primary" variant="subtle">
-                余额: ¥{{ balance.toFixed(2) }}
+                余额: ¥{{ (balance ?? 0).toFixed(2) }}
               </UBadge>
-              <UDropdownMenu :items="userMenuItems" @select="handleMenuSelect">
+              <UDropdownMenu :items="userMenuItems">
                 <UButton
                   color="neutral"
                   variant="ghost"
@@ -42,10 +43,10 @@
             </div>
           </template>
           <template v-else>
-            <UButton to="/login" color="primary" variant="soft">
+            <UButton to="/login" color="primary" variant="soft" @click="handleLoginClick">
               登录
             </UButton>
-            <UButton to="/register" color="primary">
+            <UButton to="/register" color="primary" @click="handleRegisterClick">
               注册
             </UButton>
           </template>
@@ -56,7 +57,7 @@
             color="neutral"
             variant="ghost"
             icon="i-heroicons-bars-3"
-            @click="mobileMenuOpen = !mobileMenuOpen"
+            @click="toggleMobileMenu"
           />
         </div>
       </div>
@@ -69,7 +70,7 @@
             :key="item.to"
             :to="item.to"
             class="px-3 py-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            @click="mobileMenuOpen = false"
+            @click="handleMobileNavClick(item)"
           >
             {{ item.label }}
           </NuxtLink>
@@ -82,6 +83,9 @@
 <script setup lang="ts">
 import { useAuthStore } from "../../../stores/auth";
 import { useUserStore } from "../../../stores/user";
+import { useLogger } from "../../../utils/logger";
+
+const logger = useLogger("AppHeader");
 
 const route = useRoute();
 const authStore = useAuthStore();
@@ -105,6 +109,8 @@ const navItems = computed(() => {
     items.push({ to: "/admin", label: "管理后台" });
   }
 
+  logger.trace("导航菜单项", { items: items.map(i => i.label), isAdmin: userStore.isAdmin });
+
   return items;
 });
 
@@ -113,25 +119,49 @@ const userMenuItems = [
     {
       label: "个人中心",
       icon: "i-heroicons-user",
+      onSelect: () => {
+        logger.info("用户菜单选择", { item: "个人中心" });
+        logger.debug("导航到个人中心");
+        navigateTo("/wallet");
+      },
     },
   ],
   [
     {
       label: "退出登录",
       icon: "i-heroicons-arrow-right-on-rectangle",
+      onSelect: () => {
+        logger.info("用户退出登录", { username: userStore.username });
+        authStore.logout();
+      },
     },
   ],
 ];
 
-const handleMenuSelect = (e: Event, item: { label: string }) => {
-  // Use nextTick to allow dropdown to close before navigation
-  nextTick(() => {
-    if (item.label === "个人中心") {
-      navigateTo("/wallet");
-    } else if (item.label === "退出登录") {
-      authStore.logout();
-    }
-  });
+const handleLogoClick = () => {
+  logger.debug("点击 Logo");
+};
+
+const handleNavClick = (item: { to: string; label: string }) => {
+  logger.info("导航点击", { to: item.to, label: item.label });
+};
+
+const handleMobileNavClick = (item: { to: string; label: string }) => {
+  logger.info("移动端导航点击", { to: item.to, label: item.label });
+  mobileMenuOpen.value = false;
+};
+
+const toggleMobileMenu = () => {
+  mobileMenuOpen.value = !mobileMenuOpen.value;
+  logger.debug("切换移动菜单", { open: mobileMenuOpen.value });
+};
+
+const handleLoginClick = () => {
+  logger.info("点击登录按钮");
+};
+
+const handleRegisterClick = () => {
+  logger.info("点击注册按钮");
 };
 
 const isActive = (path: string) => {
@@ -140,4 +170,17 @@ const isActive = (path: string) => {
   }
   return route.path.startsWith(path);
 };
+
+// 监听路由变化
+watch(() => route.path, (newPath, oldPath) => {
+  logger.trace("路由变化", { from: oldPath, to: newPath });
+});
+
+onMounted(() => {
+  logger.debug("AppHeader 已挂载", {
+    isLoggedIn: isLoggedIn.value,
+    username: username.value,
+    isAdmin: userStore.isAdmin,
+  });
+});
 </script>

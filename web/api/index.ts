@@ -2,6 +2,9 @@
 
 import type { ApiResponse, ApiError } from "../types/api";
 import { useAuthStore } from "../stores/auth";
+import { createApiLogger } from "../utils/logger";
+
+const apiLog = createApiLogger("request");
 
 export const createApiError = (
   statusCode: number,
@@ -25,6 +28,7 @@ export const useApiRequest = () => {
     } = {},
   ): Promise<T> => {
     const { params, ...fetchOptions } = options;
+    const method = fetchOptions.method || "GET";
 
     // 构建URL
     let url = `${baseUrl}${endpoint}`;
@@ -58,6 +62,9 @@ export const useApiRequest = () => {
       (headers as Record<string, string>)["satoken"] = token;
     }
 
+    // 记录请求开始
+    apiLog.requestStart(method, endpoint, params);
+
     try {
       const response = await fetch(url, {
         ...fetchOptions,
@@ -68,13 +75,17 @@ export const useApiRequest = () => {
 
       // 检查业务逻辑错误
       if (data.code !== 200 && data.code !== 201) {
-        throw createApiError(
+        const error = createApiError(
           data.code,
           data.message || "请求失败",
           data.data,
         );
+        apiLog.requestError(method, endpoint, { code: data.code, message: data.message });
+        throw error;
       }
 
+      // 记录请求成功
+      apiLog.requestSuccess(method, endpoint, data.data);
       return data.data as T;
     } catch (error) {
       if ((error as ApiError).statusCode) {
@@ -82,11 +93,13 @@ export const useApiRequest = () => {
       }
 
       // 网络错误或其他错误
-      throw createApiError(
+      const networkError = createApiError(
         500,
         (error as Error).message || "网络错误",
         null,
       );
+      apiLog.requestError(method, endpoint, error);
+      throw networkError;
     }
   };
 
@@ -116,6 +129,8 @@ export const useApiRequest = () => {
       file: File,
       additionalData?: Record<string, string>,
     ): Promise<T> => {
+      apiLog.requestStart("UPLOAD", endpoint, { fileName: file.name, size: file.size });
+
       const formData = new FormData();
       formData.append("file", file);
 
@@ -128,23 +143,34 @@ export const useApiRequest = () => {
       const authStore = useAuthStore();
       const token = authStore.token;
 
-      const response = await fetch(`${baseUrl}${endpoint}`, {
-        method: "POST",
-        headers: token ? { satoken: token } : {},
-        body: formData,
-      });
+      try {
+        const response = await fetch(`${baseUrl}${endpoint}`, {
+          method: "POST",
+          headers: token ? { satoken: token } : {},
+          body: formData,
+        });
 
-      const data: ApiResponse<T> = await response.json();
+        const data: ApiResponse<T> = await response.json();
 
-      if (data.code !== 200 && data.code !== 201) {
-        throw createApiError(
-          data.code,
-          data.message || "上传失败",
-          data.data,
-        );
+        if (data.code !== 200 && data.code !== 201) {
+          const error = createApiError(
+            data.code,
+            data.message || "上传失败",
+            data.data,
+          );
+          apiLog.requestError("UPLOAD", endpoint, { code: data.code, message: data.message });
+          throw error;
+        }
+
+        apiLog.requestSuccess("UPLOAD", endpoint, data.data);
+        return data.data as T;
+      } catch (error) {
+        if ((error as ApiError).statusCode) {
+          throw error;
+        }
+        apiLog.requestError("UPLOAD", endpoint, error);
+        throw createApiError(500, (error as Error).message || "上传失败", null);
       }
-
-      return data.data as T;
     },
   };
 };

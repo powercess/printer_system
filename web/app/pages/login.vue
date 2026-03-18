@@ -56,6 +56,9 @@
 <script setup lang="ts">
 import { useAuthStore } from "../../stores/auth";
 import { useAppToast } from "../../composables/useToast";
+import { createPageLogger } from "../../utils/logger";
+
+const log = createPageLogger("login");
 
 definePageMeta({
   layout: false,
@@ -71,23 +74,37 @@ const form = reactive({
   password: "",
 });
 
+onMounted(() => {
+  log.mounted();
+});
+
 const handleLogin = async () => {
+  log.formSubmit("登录表单", { username: form.username });
+
   if (!form.username || !form.password) {
+    log.warn("表单验证失败: 缺少必填字段");
     toast.error("请填写用户名和密码");
     return;
   }
 
+  log.userAction("尝试登录", { username: form.username });
   loading.value = true;
 
   try {
+    log.time("登录请求");
     const result = await authStore.login(form.username, form.password);
+    log.timeEnd("登录请求");
 
     if (result.success) {
+      log.success("登录成功", { username: form.username });
       toast.success("登录成功");
       navigateTo("/");
     } else {
+      log.error("登录失败", result.message);
       toast.error(result.message || "登录失败");
     }
+  } catch (error) {
+    log.error("登录异常", error);
   } finally {
     loading.value = false;
   }

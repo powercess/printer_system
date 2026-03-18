@@ -159,6 +159,9 @@ import { useAppToast } from "../../composables/useToast";
 import { useFileApi } from "../../api/file";
 import { useOrderApi } from "../../api/order";
 import { usePrinterApi } from "../../api/printer";
+import { createPageLogger } from "../../utils/logger";
+
+const log = createPageLogger("index");
 
 definePageMeta({
   middleware: ["auth"],
@@ -217,6 +220,7 @@ const handleDrop = (e: DragEvent) => {
   isDragging.value = false;
   const files = e.dataTransfer?.files;
   if (files?.length && files[0]) {
+    log.userAction("拖拽上传文件", { fileName: files[0].name });
     selectFile(files[0]);
   }
 };
@@ -225,6 +229,7 @@ const handleFileSelect = (e: Event) => {
   const target = e.target as HTMLInputElement;
   const files = target.files;
   if (files?.length && files[0]) {
+    log.userAction("选择上传文件", { fileName: files[0].name });
     selectFile(files[0]);
   }
 };
@@ -240,27 +245,33 @@ const selectFile = async (file: File) => {
   ];
 
   if (!allowedTypes.includes(file.type)) {
+    log.warn("文件类型不支持", { fileType: file.type });
     toast.error("不支持的文件格式");
     return;
   }
 
+  log.debug("选择文件", { fileName: file.name, fileSize: file.size, fileType: file.type });
   selectedFile.value = file;
   uploadedFileId.value = null;
   estimatedPrice.value = null;
 
   // Upload file
   try {
+    log.loadStart("文件上传");
     const fileApi = useFileApi();
     const result = await fileApi.upload(file);
     uploadedFileId.value = result.file_id;
+    log.loadSuccess("文件上传", { fileId: result.file_id });
     toast.success("文件上传成功");
   } catch (error) {
+    log.loadError("文件上传", error);
     toast.error((error as { message?: string })?.message || "文件上传失败");
     selectedFile.value = null;
   }
 };
 
 const clearFile = () => {
+  log.userAction("清除文件选择");
   selectedFile.value = null;
   uploadedFileId.value = null;
   estimatedPrice.value = null;
@@ -271,11 +282,21 @@ const clearFile = () => {
 
 const estimatePrice = async () => {
   if (!uploadedFileId.value) {
+    log.warn("估算价格失败: 未上传文件");
     toast.error("请先上传文件");
     return;
   }
 
+  log.userAction("估算价格", {
+    fileId: uploadedFileId.value,
+    colorMode: printOptions.colorMode,
+    duplex: printOptions.duplex,
+    paperSize: printOptions.paperSize,
+    copies: printOptions.copies,
+  });
+
   try {
+    log.loadStart("价格估算");
     const orderApi = useOrderApi();
     const result = await orderApi.estimate({
       file_id: uploadedFileId.value,
@@ -286,30 +307,49 @@ const estimatePrice = async () => {
       page_range: printOptions.pageRange || undefined,
     });
     estimatedPrice.value = result;
+    log.loadSuccess("价格估算", { price: result.price, pages: result.pages });
   } catch (error) {
+    log.loadError("价格估算", error);
     toast.error((error as { message?: string })?.message || "价格估算失败");
   }
 };
 
 const submitOrder = async () => {
   if (!uploadedFileId.value) {
+    log.warn("提交订单失败: 未上传文件");
     toast.error("请先上传文件");
     return;
   }
 
   if (!printOptions.printer) {
+    log.warn("提交订单失败: 未选择打印机");
     toast.error("请选择打印机");
     return;
   }
 
   if (estimatedPrice.value && estimatedPrice.value.price > userStore.balance) {
+    log.warn("提交订单失败: 余额不足", {
+      estimatedPrice: estimatedPrice.value.price,
+      balance: userStore.balance,
+    });
     toast.error("余额不足，请先充值");
     return;
   }
 
+  log.formSubmit("打印订单", {
+    fileId: uploadedFileId.value,
+    printer: printOptions.printer,
+    copies: printOptions.copies,
+    colorMode: printOptions.colorMode,
+    duplex: printOptions.duplex,
+    paperSize: printOptions.paperSize,
+    pageRange: printOptions.pageRange || "全部",
+  });
+
   submitting.value = true;
 
   try {
+    log.loadStart("提交订单");
     const orderApi = useOrderApi();
     await orderApi.create({
       file_id: uploadedFileId.value,
@@ -321,10 +361,12 @@ const submitOrder = async () => {
       page_range: printOptions.pageRange || undefined,
     });
 
+    log.loadSuccess("提交订单");
     toast.success("订单提交成功");
     await userStore.fetchBalance();
     clearFile();
   } catch (error) {
+    log.loadError("提交订单", error);
     toast.error((error as { message?: string })?.message || "订单提交失败");
   } finally {
     submitting.value = false;
@@ -333,14 +375,21 @@ const submitOrder = async () => {
 
 // Fetch printers on mount
 onMounted(async () => {
+  log.mounted();
   loadingPrinters.value = true;
   try {
+    log.loadStart("获取打印机列表");
     const printerApi = usePrinterApi();
     printers.value = await printerApi.getCupsList();
+    log.loadSuccess("获取打印机列表", { count: printers.value.length });
   } catch (error) {
-    console.error("Failed to fetch printers:", error);
+    log.loadError("获取打印机列表", error);
   } finally {
     loadingPrinters.value = false;
   }
+});
+
+onUnmounted(() => {
+  log.unmounted();
 });
 </script>

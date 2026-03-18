@@ -10,7 +10,11 @@
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
     "lint": "eslint .",
-    "test": "vitest"
+    "test": "vitest",
+    "test:component": "vitest --config vitest.component.config.ts tests/component/",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
     "@nuxt/eslint": "1.15.2",
@@ -23,5 +27,14 @@
     "pinia-plugin-persistedstate": "^4.2.0",
     "vue": "^3.5.30",
     "vue-router": "^5.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@vitejs/plugin-vue": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.0",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.8.4",
+    "jsdom": "^29.0.0",
+    "vitest": "^4.1.0"
   }
 }

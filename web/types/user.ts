@@ -1,13 +1,18 @@
 // 用户相关类型
 
+// 后端返回的用户数据结构
 export interface User {
   id: number;
   username: string;
+  nickname: string;
   email: string;
-  role: "user" | "admin";
-  balance: number;
-  created_at: string;
-  updated_at: string;
+  avatarUrl: string | null;
+  groupId: number;
+  groupName: string;
+  balance?: number; // 管理员列表接口可能返回
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
 }
 
 export interface LoginRequest {
@@ -28,6 +33,8 @@ export interface LoginResponse {
 export interface UpdateProfileRequest {
   email?: string;
   password?: string;
+  nickname?: string;
+  avatarUrl?: string;
 }
 
 export interface WalletBalance {

@@ -74,6 +74,9 @@
 <script setup lang="ts">
 import { useAuthStore } from "../../stores/auth";
 import { useAppToast } from "../../composables/useToast";
+import { createPageLogger } from "../../utils/logger";
+
+const log = createPageLogger("register");
 
 definePageMeta({
   layout: false,
@@ -91,33 +94,49 @@ const form = reactive({
   confirmPassword: "",
 });
 
+onMounted(() => {
+  log.mounted();
+});
+
 const handleRegister = async () => {
+  log.formSubmit("注册表单", { username: form.username, email: form.email });
+
   if (!form.username || !form.email || !form.password || !form.confirmPassword) {
+    log.warn("表单验证失败: 缺少必填字段");
     toast.error("请填写所有必填项");
     return;
   }
 
   if (form.password !== form.confirmPassword) {
+    log.warn("表单验证失败: 密码不匹配");
     toast.error("两次输入的密码不一致");
     return;
   }
 
   if (form.password.length < 6) {
+    log.warn("表单验证失败: 密码长度不足", { length: form.password.length });
     toast.error("密码长度至少为6位");
     return;
   }
 
+  log.userAction("尝试注册", { username: form.username, email: form.email });
   loading.value = true;
 
   try {
+    log.time("注册请求");
     const result = await authStore.register(form.username, form.password, form.email);
+    log.timeEnd("注册请求");
 
     if (result.success) {
+      log.success("注册成功", { username: form.username });
       toast.success("注册成功");
       navigateTo("/");
     } else {
+      log.error("注册失败", result.message);
       toast.error(result.message || "注册失败");
     }
+  } catch (error) {
+    log.error("注册异常", error);
   } finally {
     loading.value = false;
   }

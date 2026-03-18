@@ -25,17 +25,17 @@
     <UCard>
       <UTable :data="users" :columns="columns">
         <template #role-cell="{ row }">
-          <UBadge :color="row.original.role === 'admin' ? 'primary' : 'neutral'" variant="subtle">
-            {{ row.original.role === "admin" ? "管理员" : "用户" }}
+          <UBadge :color="row.original.groupId === 0 ? 'primary' : 'neutral'" variant="subtle">
+            {{ row.original.groupId === 0 ? "管理员" : row.original.groupName || "用户" }}
           </UBadge>
         </template>
 
         <template #balance-cell="{ row }">
-          ¥{{ row.original.balance.toFixed(2) }}
+          ¥{{ (row.original.balance ?? 0).toFixed(2) }}
         </template>
 
         <template #created_at-cell="{ row }">
-          {{ formatDate(row.original.created_at) }}
+          {{ formatDate(row.original.createdAt) }}
         </template>
 
         <template #actions-cell="{ row }">

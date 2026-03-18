@@ -96,6 +96,9 @@
 import type { FileInfo } from "../../types/file";
 import { useAppToast } from "../../composables/useToast";
 import { useFileApi } from "../../api/file";
+import { createPageLogger } from "../../utils/logger";
+
+const log = createPageLogger("files");
 
 definePageMeta({
   middleware: ["auth"],
@@ -132,6 +135,7 @@ const formatDate = (dateStr: string) => {
 };
 
 const fetchFiles = async () => {
+  log.loadStart("文件列表");
   loading.value = true;
   try {
     const result = await fileApi.getList({
@@ -140,7 +144,9 @@ const fetchFiles = async () => {
     });
     files.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);
+    log.loadSuccess("文件列表", { count: result.items.length, total: result.total });
   } catch (error) {
+    log.loadError("文件列表", error);
     toast.error("获取文件列表失败");
   } finally {
     loading.value = false;
@@ -148,10 +154,12 @@ const fetchFiles = async () => {
 };
 
 const printFile = (file: FileInfo) => {
+  log.userAction("打印文件", { fileId: file.id, fileName: file.name });
   navigateTo(`/?file=${file.id}`);
 };
 
 const confirmDelete = (file: FileInfo) => {
+  log.debug("确认删除文件", { fileId: file.id, fileName: file.name });
   fileToDelete.value = file;
   deleteModalOpen.value = true;
 };
@@ -159,12 +167,15 @@ const confirmDelete = (file: FileInfo) => {
 const deleteFile = async () => {
   if (!fileToDelete.value) return;
 
+  log.userAction("删除文件", { fileId: fileToDelete.value.id, fileName: fileToDelete.value.name });
   deleting.value = true;
   try {
     await fileApi.delete(fileToDelete.value.id);
+    log.success("文件删除成功", { fileId: fileToDelete.value.id });
     toast.success("文件已删除");
     await fetchFiles();
   } catch (error) {
+    log.error("文件删除失败", error);
     toast.error("删除失败");
   } finally {
     deleting.value = false;
@@ -174,6 +185,7 @@ const deleteFile = async () => {
 };
 
 onMounted(() => {
+  log.mounted();
   fetchFiles();
 });
 </script>

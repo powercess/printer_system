@@ -110,11 +110,14 @@
 
 <script setup lang="ts">
 import type { Order, OrderStatus } from "../../types/order";
-import { ORDER_STATUS_MAP, STATUS_TO_NUMBER_MAP, COLOR_MODE_MAP } from "../../types/order";
+import { ORDER_STATUS_MAP, COLOR_MODE_MAP } from "../../types/order";
 import { useAppToast } from "../../composables/useToast";
 import { useOrderApi } from "../../api/order";
+import { createPageLogger } from "../../utils/logger";
 import LoadingSpinner from "../components/common/LoadingSpinner.vue";
 import Pagination from "../components/common/Pagination.vue";
+
+const log = createPageLogger("orders");
 
 definePageMeta({
   middleware: ["auth"],
@@ -172,6 +175,8 @@ const formatDate = (dateStr: string) => {
 };
 
 const fetchOrders = async () => {
+  log.loadStart("订单列表");
+  log.debug("筛选条件", { statusFilter: statusFilter.value, page: currentPage.value });
   loading.value = true;
   try {
     const result = await orderApi.getList({
@@ -181,7 +186,9 @@ const fetchOrders = async () => {
     });
     orders.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);
+    log.loadSuccess("订单列表", { count: result.items.length, total: result.total });
   } catch (error) {
+    log.loadError("订单列表", error);
     toast.error("获取订单列表失败");
   } finally {
     loading.value = false;
@@ -189,6 +196,7 @@ const fetchOrders = async () => {
 };
 
 const confirmCancel = (order: Order) => {
+  log.debug("确认取消订单", { orderId: order.id, fileName: order.fileName });
   orderToCancel.value = order;
   cancelModalOpen.value = true;
 };
@@ -196,12 +204,15 @@ const confirmCancel = (order: Order) => {
 const cancelOrder = async () => {
   if (!orderToCancel.value) return;
 
+  log.userAction("取消订单", { orderId: orderToCancel.value.id, fileName: orderToCancel.value.fileName });
   cancelling.value = true;
   try {
     await orderApi.cancel(orderToCancel.value.id.toString());
+    log.success("订单取消成功", { orderId: orderToCancel.value.id });
     toast.success("订单已取消");
     await fetchOrders();
   } catch (error) {
+    log.error("订单取消失败", error);
     toast.error("取消订单失败");
   } finally {
     cancelling.value = false;
@@ -211,6 +222,7 @@ const cancelOrder = async () => {
 };
 
 onMounted(() => {
+  log.mounted();
   fetchOrders();
 });
 </script>

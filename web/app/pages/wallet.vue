@@ -10,7 +10,7 @@
     <UCard class="bg-gradient-to-r from-primary to-primary-600 text-white">
       <div class="text-center py-6">
         <p class="text-sm opacity-80">账户余额</p>
-        <p class="text-4xl font-bold mt-2">¥{{ balance.toFixed(2) }}</p>
+        <p class="text-4xl font-bold mt-2">¥{{ (balance ?? 0).toFixed(2) }}</p>
       </div>
     </UCard>
 
@@ -131,8 +131,11 @@ import { TRANSACTION_TYPE_MAP } from "../../types/user";
 import { useUserStore } from "../../stores/user";
 import { useAppToast } from "../../composables/useToast";
 import { useUserApi } from "../../api/user";
+import { createPageLogger } from "../../utils/logger";
 import LoadingSpinner from "../components/common/LoadingSpinner.vue";
 import Pagination from "../components/common/Pagination.vue";
+
+const log = createPageLogger("wallet");
 
 definePageMeta({
   middleware: ["auth"],
@@ -177,7 +180,7 @@ const getTypeStyle = (type: number) => {
     consume: { bgClass: "bg-red-100 text-red-600", textClass: "text-red-600", icon: "i-heroicons-minus", prefix: "-" },
     refund: { bgClass: "bg-blue-100 text-blue-600", textClass: "text-green-600", icon: "i-heroicons-arrow-uturn-left", prefix: "+" },
   };
-  return styles[typeStr];
+  return styles[typeStr] || styles.consume;
 };
 
 const getTypeLabel = (type: number): string => {
@@ -194,18 +197,25 @@ const formatDate = (dateStr: string) => {
 };
 
 const handleRecharge = async () => {
+  log.formSubmit("充值表单", { amount: rechargeAmount.value, paymentMethod: paymentMethod.value });
+
   if (!rechargeAmount.value || rechargeAmount.value <= 0) {
+    log.warn("充值金额无效", { amount: rechargeAmount.value });
     toast.error("请选择或输入充值金额");
     return;
   }
 
+  log.userAction("发起充值", { amount: rechargeAmount.value, paymentMethod: paymentMethod.value });
   recharging.value = true;
   try {
+    log.time("充值请求");
     await userApi.recharge({
       amount: rechargeAmount.value,
       payment_method: paymentMethod.value,
     });
+    log.timeEnd("充值请求");
 
+    log.success("充值成功", { amount: rechargeAmount.value });
     toast.success("充值成功");
     await userStore.fetchBalance();
     await fetchTransactions();
@@ -214,6 +224,7 @@ const handleRecharge = async () => {
     selectedAmount.value = null;
     customAmount.value = null;
   } catch (error) {
+    log.error("充值失败", error);
     toast.error((error as { message?: string })?.message || "充值失败");
   } finally {
     recharging.value = false;
@@ -221,6 +232,7 @@ const handleRecharge = async () => {
 };
 
 const fetchTransactions = async () => {
+  log.loadStart("交易记录");
   loadingTransactions.value = true;
   try {
     const result = await userApi.getTransactions({
@@ -230,7 +242,9 @@ const fetchTransactions = async () => {
     });
     transactions.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);
+    log.loadSuccess("交易记录", { count: result.items.length, total: result.total });
   } catch (error) {
+    log.loadError("交易记录", error);
     toast.error("获取交易记录失败");
   } finally {
     loadingTransactions.value = false;
@@ -238,6 +252,8 @@ const fetchTransactions = async () => {
 };
 
 onMounted(() => {
+  log.mounted();
+  log.debug("初始化钱包页面，获取余额和交易记录");
   userStore.fetchBalance();
   fetchTransactions();
 });
