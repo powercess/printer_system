@@ -4,27 +4,36 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.powercess.printer_system.config.AppProperties;
 import com.powercess.printer_system.dto.PageResult;
 import com.powercess.printer_system.dto.user.*;
+import com.powercess.printer_system.entity.Payment;
 import com.powercess.printer_system.entity.User;
 import com.powercess.printer_system.entity.UserGroup;
 import com.powercess.printer_system.entity.WalletTransaction;
 import com.powercess.printer_system.exception.BusinessException;
+import com.powercess.printer_system.mapper.PaymentMapper;
 import com.powercess.printer_system.mapper.UserGroupMapper;
 import com.powercess.printer_system.mapper.UserMapper;
 import com.powercess.printer_system.mapper.WalletTransactionMapper;
+import com.powercess.printer_system.payment.QixiangPayClient;
+import com.powercess.printer_system.payment.QixiangPayRequest;
+import com.powercess.printer_system.payment.QixiangPayResponse;
 import com.powercess.printer_system.service.UserService;
 import com.powercess.printer_system.utils.PasswordUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
@@ -32,6 +41,9 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final UserGroupMapper userGroupMapper;
     private final WalletTransactionMapper walletTransactionMapper;
+    private final PaymentMapper paymentMapper;
+    private final QixiangPayClient qixiangPayClient;
+    private final AppProperties appProperties;
 
     @Override
     @Transactional
@@ -113,26 +125,85 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void recharge(Long userId, WalletRechargeRequest request) {
+    public Map<String, Object> createWalletRecharge(Long userId, WalletRechargeRequest request) {
         User user = userMapper.findByIdNotDeleted(userId)
             .orElseThrow(() -> new BusinessException(401, "用户不存在"));
 
-        BigDecimal balanceBefore = user.getWalletBalance();
-        BigDecimal balanceAfter = balanceBefore.add(request.amount());
+        String paymentMethod = request.paymentMethod();
+        if (!paymentMethod.equals("wechat") && !paymentMethod.equals("alipay")) {
+            throw new BusinessException(400, "不支持的支付方式");
+        }
 
-        user.setWalletBalance(balanceAfter);
-        user.setUpdatedAt(LocalDateTime.now());
-        userMapper.updateById(user);
+        String outTradeNo = "RCH" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + userId;
+        String payType = paymentMethod.equals("wechat") ? "wxpay" : "alipay";
 
-        WalletTransaction transaction = new WalletTransaction();
-        transaction.setUserId(userId);
-        transaction.setType(0);
-        transaction.setAmount(request.amount());
-        transaction.setBalanceBefore(balanceBefore);
-        transaction.setBalanceAfter(balanceAfter);
-        transaction.setRelatedId("recharge_" + request.paymentMethod());
-        transaction.setCreatedAt(LocalDateTime.now());
-        walletTransactionMapper.insert(transaction);
+        String notifyUrl = appProperties.baseUrl() + "/api/wallet/recharge/notify";
+
+        QixiangPayRequest payRequest = new QixiangPayRequest(
+            outTradeNo,
+            "钱包充值",
+            request.amount(),
+            notifyUrl,
+            null,
+            payType,
+            null,
+            "jump"
+        );
+
+        QixiangPayResponse response = qixiangPayClient.createPayment(payRequest);
+
+        if (!response.success()) {
+            throw new BusinessException(500, "支付下单失败: " + response.msg());
+        }
+
+        Payment payment = new Payment();
+        payment.setUserId(userId);
+        payment.setAmount(request.amount());
+        payment.setPaymentMethod(paymentMethod);
+        payment.setPaymentType("wallet");
+        payment.setMerchantId(response.tradeNo());
+        payment.setTransactionId(outTradeNo);
+        payment.setStatus(0);
+        payment.setCreatedAt(LocalDateTime.now());
+        paymentMapper.insert(payment);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("outTradeNo", outTradeNo);
+        result.put("payUrl", response.payUrl());
+        result.put("qrcode", response.qrcode());
+        result.put("amount", request.amount());
+
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getRechargeStatus(Long userId, String outTradeNo) {
+        LambdaQueryWrapper<Payment> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Payment::getTransactionId, outTradeNo);
+        wrapper.eq(Payment::getPaymentType, "wallet");
+        Payment payment = paymentMapper.selectOne(wrapper);
+
+        if (payment == null) {
+            throw new BusinessException(404, "充值订单不存在");
+        }
+        if (!payment.getUserId().equals(userId)) {
+            throw new BusinessException(403, "无权查询此充值订单");
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("outTradeNo", outTradeNo);
+        result.put("amount", payment.getAmount());
+        result.put("status", payment.getStatus());
+        result.put("paidAt", payment.getPaidAt());
+
+        if (payment.getStatus() == 1) {
+            User user = userMapper.selectById(userId);
+            if (user != null) {
+                result.put("balance", user.getWalletBalance());
+            }
+        }
+
+        return result;
     }
 
     @Override

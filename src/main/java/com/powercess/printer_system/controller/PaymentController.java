@@ -42,14 +42,14 @@ public class PaymentController {
     @GetMapping("/notify")
     public String paymentNotifyGet(@RequestParam Map<String, String> params) {
         Map<String, Object> result = paymentService.handleNotify(params);
-        return "success";
+        return "success".equals(result.get("status")) ? "success" : "fail";
     }
 
     @Operation(summary = "支付异步通知")
     @PostMapping("/notify")
     public String paymentNotifyPost(@RequestParam Map<String, String> params) {
         Map<String, Object> result = paymentService.handleNotify(params);
-        return "success";
+        return "success".equals(result.get("status")) ? "success" : "fail";
     }
 
     @Operation(summary = "支付同步跳转")

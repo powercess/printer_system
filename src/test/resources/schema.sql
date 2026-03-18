@@ -66,15 +66,19 @@ CREATE TABLE orders (
 -- Payments table
 CREATE TABLE payments (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    order_id BIGINT NOT NULL,
+    order_id BIGINT NULL,
     user_id BIGINT NOT NULL,
-    trade_no VARCHAR(100) NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
     payment_method VARCHAR(50),
+    payment_type VARCHAR(20) DEFAULT 'order',
+    merchant_id VARCHAR(100),
+    transaction_id VARCHAR(100) NOT NULL,
     status INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     paid_at TIMESTAMP NULL
 );
+
+CREATE UNIQUE INDEX idx_out_trade_no ON payments (transaction_id);
 
 -- Promotions table
 CREATE TABLE promotions (

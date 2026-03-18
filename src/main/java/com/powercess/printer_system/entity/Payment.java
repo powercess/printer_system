@@ -25,6 +25,8 @@ public class Payment {
 
     private String transactionId;
 
+    private String paymentType;
+
     private Integer status;
 
     private LocalDateTime paidAt;

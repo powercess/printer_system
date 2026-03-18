@@ -1,15 +1,20 @@
 package com.powercess.printer_system.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.powercess.printer_system.config.AppProperties;
 import com.powercess.printer_system.dto.PageResult;
 import com.powercess.printer_system.dto.user.*;
+import com.powercess.printer_system.entity.Payment;
 import com.powercess.printer_system.entity.User;
 import com.powercess.printer_system.entity.UserGroup;
 import com.powercess.printer_system.entity.WalletTransaction;
 import com.powercess.printer_system.exception.BusinessException;
+import com.powercess.printer_system.mapper.PaymentMapper;
 import com.powercess.printer_system.mapper.UserGroupMapper;
 import com.powercess.printer_system.mapper.UserMapper;
 import com.powercess.printer_system.mapper.WalletTransactionMapper;
+import com.powercess.printer_system.payment.QixiangPayClient;
+import com.powercess.printer_system.payment.QixiangPayResponse;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -36,6 +41,15 @@ class UserServiceTest {
 
     @Mock
     private WalletTransactionMapper walletTransactionMapper;
+
+    @Mock
+    private PaymentMapper paymentMapper;
+
+    @Mock
+    private QixiangPayClient qixiangPayClient;
+
+    @Mock
+    private AppProperties appProperties;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -220,8 +234,8 @@ class UserServiceTest {
     class RechargeTests {
 
         @Test
-        @DisplayName("应该成功充值")
-        void shouldRechargeSuccessfully() {
+        @DisplayName("应该成功创建充值订单")
+        void shouldCreateRechargeOrderSuccessfully() {
             User user = new User();
             user.setId(1L);
             user.setWalletBalance(new BigDecimal("50.00"));
@@ -229,21 +243,54 @@ class UserServiceTest {
             WalletRechargeRequest request = new WalletRechargeRequest(new BigDecimal("30.00"), "alipay");
 
             when(userMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(user));
-            when(userMapper.updateById(any(User.class))).thenReturn(1);
-            when(walletTransactionMapper.insert(any(WalletTransaction.class))).thenReturn(1);
+            when(appProperties.baseUrl()).thenReturn("https://example.com");
+            when(qixiangPayClient.createPayment(any())).thenReturn(
+                QixiangPayResponse.success("TRADE123", "https://pay.url", "https://qr.code")
+            );
+            when(paymentMapper.insert(any(Payment.class))).thenReturn(1);
 
-            assertThatCode(() -> userService.recharge(1L, request)).doesNotThrowAnyException();
+            Map<String, Object> result = userService.createWalletRecharge(1L, request);
 
-            ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-            verify(userMapper).updateById(userCaptor.capture());
-            assertThat(userCaptor.getValue().getWalletBalance()).isEqualByComparingTo(new BigDecimal("80.00"));
+            assertThat(result).containsKeys("outTradeNo", "payUrl", "qrcode", "amount");
+            assertThat(result.get("payUrl")).isEqualTo("https://pay.url");
+            assertThat(result.get("qrcode")).isEqualTo("https://qr.code");
+            assertThat((BigDecimal) result.get("amount")).isEqualByComparingTo(new BigDecimal("30.00"));
 
-            ArgumentCaptor<WalletTransaction> transactionCaptor = ArgumentCaptor.forClass(WalletTransaction.class);
-            verify(walletTransactionMapper).insert(transactionCaptor.capture());
-            WalletTransaction capturedTransaction = transactionCaptor.getValue();
-            assertThat(capturedTransaction.getAmount()).isEqualByComparingTo(new BigDecimal("30.00"));
-            assertThat(capturedTransaction.getBalanceBefore()).isEqualByComparingTo(new BigDecimal("50.00"));
-            assertThat(capturedTransaction.getBalanceAfter()).isEqualByComparingTo(new BigDecimal("80.00"));
+            verify(paymentMapper).insert(any(Payment.class));
+        }
+
+        @Test
+        @DisplayName("不支持的支付方式应该抛出异常")
+        void shouldThrowExceptionForUnsupportedPaymentMethod() {
+            User user = new User();
+            user.setId(1L);
+
+            WalletRechargeRequest request = new WalletRechargeRequest(new BigDecimal("30.00"), "invalid");
+
+            when(userMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(user));
+
+            assertThatThrownBy(() -> userService.createWalletRecharge(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("不支持的支付方式");
+        }
+
+        @Test
+        @DisplayName("支付下单失败应该抛出异常")
+        void shouldThrowExceptionWhenPaymentFails() {
+            User user = new User();
+            user.setId(1L);
+
+            WalletRechargeRequest request = new WalletRechargeRequest(new BigDecimal("30.00"), "alipay");
+
+            when(userMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(user));
+            when(appProperties.baseUrl()).thenReturn("https://example.com");
+            when(qixiangPayClient.createPayment(any())).thenReturn(
+                QixiangPayResponse.fail("支付渠道异常")
+            );
+
+            assertThatThrownBy(() -> userService.createWalletRecharge(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("支付下单失败");
         }
     }
 

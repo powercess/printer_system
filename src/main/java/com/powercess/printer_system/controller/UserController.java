@@ -64,11 +64,19 @@ public class UserController {
 
     @Operation(summary = "钱包充值")
     @PostMapping("/wallet/recharge")
-    public Result<Map<String, BigDecimal>> recharge(@Valid @RequestBody WalletRechargeRequest request) {
+    public Result<Map<String, Object>> recharge(@Valid @RequestBody WalletRechargeRequest request) {
         Long userId = StpUtil.getLoginIdAsLong();
-        userService.recharge(userId, request);
-        BigDecimal balance = userService.getWalletBalance(userId);
-        return Result.success("充值成功", Map.of("balanceAfter", balance));
+        Map<String, Object> result = userService.createWalletRecharge(userId, request);
+        return Result.success("充值订单创建成功，请前往支付", result);
+    }
+
+    @Operation(summary = "查询充值状态")
+    @GetMapping("/wallet/recharge/status")
+    public Result<Map<String, Object>> getRechargeStatus(
+            @Parameter(description = "商户订单号") @RequestParam String outTradeNo) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        Map<String, Object> result = userService.getRechargeStatus(userId, outTradeNo);
+        return Result.success("获取成功", result);
     }
 
     @Operation(summary = "获取钱包流水")

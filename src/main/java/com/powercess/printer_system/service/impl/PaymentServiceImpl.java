@@ -12,6 +12,9 @@ import com.powercess.printer_system.mapper.OrderMapper;
 import com.powercess.printer_system.mapper.PaymentMapper;
 import com.powercess.printer_system.mapper.UserMapper;
 import com.powercess.printer_system.mapper.WalletTransactionMapper;
+import com.powercess.printer_system.payment.QixiangPayClient;
+import com.powercess.printer_system.payment.QixiangPayRequest;
+import com.powercess.printer_system.payment.QixiangPayResponse;
 import com.powercess.printer_system.service.PaymentService;
 import com.powercess.printer_system.service.PrinterService;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final WalletTransactionMapper walletTransactionMapper;
     private final PrinterService printerService;
     private final AppProperties appProperties;
+    private final QixiangPayClient qixiangPayClient;
 
     @Override
     @Transactional
@@ -100,6 +104,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setUserId(userId);
         payment.setAmount(amount);
         payment.setPaymentMethod("wallet");
+        payment.setPaymentType("order");
         payment.setTransactionId(transactionId);
         payment.setStatus(1);
         payment.setPaidAt(LocalDateTime.now());
@@ -147,6 +152,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setUserId(userId);
         payment.setAmount(order.getFinalAmount());
         payment.setPaymentMethod(paymentMethod);
+        payment.setPaymentType("order");
         payment.setMerchantId((String) payResult.get("trade_no"));
         payment.setTransactionId(outTradeNo);
         payment.setStatus(0);
@@ -166,11 +172,25 @@ public class PaymentServiceImpl implements PaymentService {
 
     private Map<String, Object> createThirdPartyPayment(String outTradeNo, String name, String money,
                                                          String notifyUrl, String returnUrl, String payType) {
+        QixiangPayRequest request = new QixiangPayRequest(
+            outTradeNo,
+            name,
+            new BigDecimal(money),
+            notifyUrl,
+            returnUrl,
+            payType,
+            null,
+            "jump"
+        );
+
+        QixiangPayResponse response = qixiangPayClient.createPayment(request);
+
         Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("trade_no", "TRADE_" + System.currentTimeMillis());
-        result.put("payurl", "https://example.com/pay?out_trade_no=" + outTradeNo);
-        result.put("qrcode", "https://example.com/qrcode/" + outTradeNo);
+        result.put("success", response.success());
+        result.put("trade_no", response.tradeNo());
+        result.put("payurl", response.payUrl());
+        result.put("qrcode", response.qrcode());
+        result.put("msg", response.msg());
         return result;
     }
 
@@ -195,8 +215,15 @@ public class PaymentServiceImpl implements PaymentService {
     public Map<String, Object> handleNotify(Map<String, String> params) {
         log.info("Payment notify received: {}", params);
 
+        // Verify signature
+        if (!qixiangPayClient.verifyCallback(params)) {
+            log.warn("Invalid signature in payment notify");
+            return Map.of("status", "fail", "message", "invalid signature");
+        }
+
         String outTradeNo = params.get("out_trade_no");
         String tradeStatus = params.get("trade_status");
+        String moneyStr = params.get("money");
 
         if (!"TRADE_SUCCESS".equals(tradeStatus)) {
             return Map.of("status", "success");
@@ -206,8 +233,22 @@ public class PaymentServiceImpl implements PaymentService {
         wrapper.eq(Payment::getTransactionId, outTradeNo);
         Payment payment = paymentMapper.selectOne(wrapper);
 
-        if (payment == null || payment.getStatus() == 1) {
+        if (payment == null) {
+            log.warn("Payment not found for outTradeNo: {}", outTradeNo);
+            return Map.of("status", "fail", "message", "payment not found");
+        }
+
+        if (payment.getStatus() == 1) {
+            log.info("Payment already processed: {}", outTradeNo);
             return Map.of("status", "success");
+        }
+
+        // Verify amount
+        BigDecimal callbackMoney = new BigDecimal(moneyStr);
+        if (payment.getAmount().compareTo(callbackMoney) != 0) {
+            log.warn("Amount mismatch for payment {}: expected {}, got {}",
+                outTradeNo, payment.getAmount(), callbackMoney);
+            return Map.of("status", "fail", "message", "amount mismatch");
         }
 
         payment.setStatus(1);
@@ -215,16 +256,40 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setMerchantId(params.get("trade_no"));
         paymentMapper.updateById(payment);
 
-        Order order = orderMapper.selectById(payment.getOrderId());
-        if (order != null) {
-            order.setStatus(1);
-            order.setUpdatedAt(LocalDateTime.now());
-            orderMapper.updateById(order);
+        // Handle based on payment type
+        if ("wallet".equals(payment.getPaymentType())) {
+            // Wallet recharge
+            User user = userMapper.selectById(payment.getUserId());
+            if (user != null) {
+                BigDecimal balanceBefore = user.getWalletBalance();
+                BigDecimal balanceAfter = balanceBefore.add(payment.getAmount());
+                user.setWalletBalance(balanceAfter);
+                user.setUpdatedAt(LocalDateTime.now());
+                userMapper.updateById(user);
 
-            printerService.executePrint(
-                order.getId(), order.getPrinterName(), order.getFileId(),
-                order.getColorMode(), order.getDuplex(), order.getPaperSize(), order.getCopies()
-            );
+                WalletTransaction transaction = new WalletTransaction();
+                transaction.setUserId(payment.getUserId());
+                transaction.setType(0);
+                transaction.setAmount(payment.getAmount());
+                transaction.setBalanceBefore(balanceBefore);
+                transaction.setBalanceAfter(balanceAfter);
+                transaction.setRelatedId("recharge_" + outTradeNo);
+                transaction.setCreatedAt(LocalDateTime.now());
+                walletTransactionMapper.insert(transaction);
+            }
+        } else {
+            // Order payment
+            Order order = orderMapper.selectById(payment.getOrderId());
+            if (order != null) {
+                order.setStatus(1);
+                order.setUpdatedAt(LocalDateTime.now());
+                orderMapper.updateById(order);
+
+                printerService.executePrint(
+                    order.getId(), order.getPrinterName(), order.getFileId(),
+                    order.getColorMode(), order.getDuplex(), order.getPaperSize(), order.getCopies()
+                );
+            }
         }
 
         return Map.of("status", "success");

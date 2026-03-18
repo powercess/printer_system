@@ -19,6 +19,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                 "/api/printer/health",
                 "/api/payment/notify",
                 "/api/payment/return",
+                "/api/wallet/recharge/notify",
                 "/api-docs/**",
                 "/swagger-ui/**",
                 "/swagger-ui.html",
