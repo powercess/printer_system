@@ -5,14 +5,36 @@ export default defineNuxtConfig({
 
   modules: [
     "@nuxt/eslint",
-    "@nuxt/hints",
     "@nuxt/image",
     "@nuxt/test-utils",
     "@nuxt/ui",
+    "@pinia/nuxt",
   ],
-  vite: {
-    optimizeDeps: {
-      include: ["@vue/devtools-core", "@vue/devtools-kit"],
+  css: ["~/assets/css/main.css"],
+
+  imports: {
+    dirs: ["stores", "composables", "api", "types"],
+  },
+
+  runtimeConfig: {
+    public: {
+      apiBase: "http://localhost:8080",
     },
+  },
+
+  pinia: {
+    storesDirs: ["./stores/**"],
+  },
+
+  alias: {
+    "~": ".",
+    "~/types": "./types",
+    "~/api": "./api",
+    "~/stores": "./stores",
+    "~/composables": "./composables",
+  },
+
+  typescript: {
+    strict: true,
   },
 });
