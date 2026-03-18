@@ -30,7 +30,7 @@
               <UBadge color="primary" variant="subtle">
                 余额: ¥{{ balance.toFixed(2) }}
               </UBadge>
-              <UDropdown :items="userMenuItems">
+              <UDropdownMenu :items="userMenuItems" @select="handleMenuSelect">
                 <UButton
                   color="neutral"
                   variant="ghost"
@@ -38,7 +38,7 @@
                 >
                   {{ username }}
                 </UButton>
-              </UDropdown>
+              </UDropdownMenu>
             </div>
           </template>
           <template v-else>
@@ -108,20 +108,31 @@ const navItems = computed(() => {
   return items;
 });
 
-const userMenuItems = computed(() => [
+const userMenuItems = [
   [
     {
       label: "个人中心",
       icon: "i-heroicons-user",
-      click: () => navigateTo("/wallet"),
     },
+  ],
+  [
     {
       label: "退出登录",
       icon: "i-heroicons-arrow-right-on-rectangle",
-      click: () => authStore.logout(),
     },
   ],
-]);
+];
+
+const handleMenuSelect = (e: Event, item: { label: string }) => {
+  // Use nextTick to allow dropdown to close before navigation
+  nextTick(() => {
+    if (item.label === "个人中心") {
+      navigateTo("/wallet");
+    } else if (item.label === "退出登录") {
+      authStore.logout();
+    }
+  });
+};
 
 const isActive = (path: string) => {
   if (path === "/") {

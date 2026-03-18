@@ -1,15 +1,15 @@
 // 文件相关类型
 
 export interface FileInfo {
-  id: string;
-  user_id: number;
-  file_name: string;
-  file_path: string;
-  file_size: number;
-  file_type: string;
-  pages: number;
-  created_at: string;
-  updated_at: string;
+  id: number;
+  userId: number;
+  name: string;
+  filePath: string;
+  fileSize: number;
+  fileType: string;
+  pageCount: number;
+  uploadTime: string;
+  deletedAt: string | null;
 }
 
 export interface UploadFileParams {
@@ -23,13 +23,13 @@ export interface FileListParams {
 }
 
 export interface FileDetail {
-  id: string;
-  user_id: number;
-  file_name: string;
-  file_path: string;
-  file_size: number;
-  file_type: string;
-  pages: number;
-  created_at: string;
-  updated_at: string;
+  id: number;
+  userId: number;
+  name: string;
+  filePath: string;
+  fileSize: number;
+  fileType: string;
+  pageCount: number;
+  uploadTime: string;
+  deletedAt: string | null;
 }

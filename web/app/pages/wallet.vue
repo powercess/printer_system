@@ -95,20 +95,20 @@
           <div class="flex items-center gap-3">
             <div
               class="w-10 h-10 rounded-full flex items-center justify-center"
-              :class="tx.type === 'recharge' ? 'bg-green-100 text-green-600' : tx.type === 'refund' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'"
+              :class="getTypeStyle(tx.type).bgClass"
             >
-              <UIcon :name="transactionIcons[tx.type]" class="w-5 h-5" />
+              <UIcon :name="getTypeStyle(tx.type).icon" class="w-5 h-5" />
             </div>
             <div>
-              <p class="font-medium">{{ tx.description }}</p>
-              <p class="text-sm text-gray-500">{{ formatDate(tx.created_at) }}</p>
+              <p class="font-medium">{{ getTypeLabel(tx.type) }}</p>
+              <p class="text-sm text-gray-500">{{ formatDate(tx.createdAt) }}</p>
             </div>
           </div>
           <p
             class="text-lg font-bold"
-            :class="tx.type === 'consume' ? 'text-red-600' : 'text-green-600'"
+            :class="getTypeStyle(tx.type).textClass"
           >
-            {{ tx.type === "consume" ? "-" : "+" }}¥{{ tx.amount.toFixed(2) }}
+            {{ getTypeStyle(tx.type).prefix }}¥{{ tx.amount.toFixed(2) }}
           </p>
         </div>
       </div>
@@ -127,9 +127,12 @@
 
 <script setup lang="ts">
 import type { Transaction } from "../../types/user";
+import { TRANSACTION_TYPE_MAP } from "../../types/user";
 import { useUserStore } from "../../stores/user";
 import { useAppToast } from "../../composables/useToast";
 import { useUserApi } from "../../api/user";
+import LoadingSpinner from "../components/common/LoadingSpinner.vue";
+import Pagination from "../components/common/Pagination.vue";
 
 definePageMeta({
   middleware: ["auth"],
@@ -157,20 +160,33 @@ const loadingTransactions = ref(false);
 const transactions = ref<Transaction[]>([]);
 const currentPage = ref(1);
 const totalPages = ref(1);
-const transactionType = ref<string>("");
+const transactionType = ref<string>("all");
 const pageSize = 10;
 
 const transactionTypeOptions = [
-  { value: "", label: "全部" },
+  { value: "all", label: "全部" },
   { value: "recharge", label: "充值" },
   { value: "consume", label: "消费" },
   { value: "refund", label: "退款" },
 ];
 
-const transactionIcons: Record<string, string> = {
-  recharge: "i-heroicons-plus",
-  consume: "i-heroicons-minus",
-  refund: "i-heroicons-arrow-uturn-left",
+const getTypeStyle = (type: number) => {
+  const typeStr = TRANSACTION_TYPE_MAP[type] || "consume";
+  const styles: Record<string, { bgClass: string; textClass: string; icon: string; prefix: string }> = {
+    recharge: { bgClass: "bg-green-100 text-green-600", textClass: "text-green-600", icon: "i-heroicons-plus", prefix: "+" },
+    consume: { bgClass: "bg-red-100 text-red-600", textClass: "text-red-600", icon: "i-heroicons-minus", prefix: "-" },
+    refund: { bgClass: "bg-blue-100 text-blue-600", textClass: "text-green-600", icon: "i-heroicons-arrow-uturn-left", prefix: "+" },
+  };
+  return styles[typeStr];
+};
+
+const getTypeLabel = (type: number): string => {
+  const labels: Record<string, string> = {
+    recharge: "充值",
+    consume: "消费",
+    refund: "退款",
+  };
+  return labels[TRANSACTION_TYPE_MAP[type] || "consume"];
 };
 
 const formatDate = (dateStr: string) => {
@@ -210,7 +226,7 @@ const fetchTransactions = async () => {
     const result = await userApi.getTransactions({
       page: currentPage.value,
       page_size: pageSize,
-      type: transactionType.value as Transaction["type"] || undefined,
+      type: transactionType.value === "all" ? undefined : transactionType.value as "recharge" | "consume" | "refund",
     });
     transactions.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);

@@ -55,7 +55,7 @@ export const useApiRequest = () => {
 
     // 添加认证token
     if (token) {
-      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+      (headers as Record<string, string>)["satoken"] = token;
     }
 
     try {
@@ -130,7 +130,7 @@ export const useApiRequest = () => {
 
       const response = await fetch(`${baseUrl}${endpoint}`, {
         method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: token ? { satoken: token } : {},
         body: formData,
       });
 

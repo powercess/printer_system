@@ -30,18 +30,18 @@
           <div class="flex items-start gap-3">
             <UIcon name="i-heroicons-document-text" class="w-10 h-10 text-primary flex-shrink-0" />
             <div>
-              <p class="font-medium">{{ order.file_name }}</p>
+              <p class="font-medium">{{ order.fileName || '未知文件' }}</p>
               <div class="flex flex-wrap items-center gap-2 text-sm text-gray-500 mt-1">
-                <span>{{ order.printer_name }}</span>
+                <span>{{ order.printerName }}</span>
                 <span>·</span>
                 <span>{{ order.copies }} 份</span>
                 <span>·</span>
-                <span>{{ order.color_mode === "bw" ? "黑白" : "彩色" }}</span>
+                <span>{{ getColorModeLabel(order.colorMode) }}</span>
                 <span>·</span>
-                <span>{{ order.paper_size }}</span>
+                <span>{{ order.paperSize }}</span>
               </div>
               <p class="text-sm text-gray-500 mt-1">
-                {{ formatDate(order.created_at) }}
+                {{ formatDate(order.createdAt) }}
               </p>
             </div>
           </div>
@@ -49,19 +49,19 @@
           <div class="flex items-center gap-4">
             <div class="text-right">
               <p class="text-lg font-bold text-primary">
-                ¥{{ order.price.toFixed(2) }}
+                ¥{{ order.finalAmount.toFixed(2) }}
               </p>
               <UBadge
-                :color="statusColors[order.status] as 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'"
+                :color="statusColors[getStatusLabel(order.status)] as 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'error' | 'neutral'"
                 variant="subtle"
                 size="sm"
               >
-                {{ statusLabels[order.status] }}
+                {{ statusLabels[getStatusLabel(order.status)] }}
               </UBadge>
             </div>
 
             <UButton
-              v-if="order.status === 'pending'"
+              v-if="order.status === 0"
               color="error"
               variant="ghost"
               size="sm"
@@ -109,9 +109,12 @@
 </template>
 
 <script setup lang="ts">
-import type { Order } from "../../types/order";
+import type { Order, OrderStatus } from "../../types/order";
+import { ORDER_STATUS_MAP, STATUS_TO_NUMBER_MAP, COLOR_MODE_MAP } from "../../types/order";
 import { useAppToast } from "../../composables/useToast";
 import { useOrderApi } from "../../api/order";
+import LoadingSpinner from "../components/common/LoadingSpinner.vue";
+import Pagination from "../components/common/Pagination.vue";
 
 definePageMeta({
   middleware: ["auth"],
@@ -123,7 +126,7 @@ const orders = ref<Order[]>([]);
 const currentPage = ref(1);
 const totalPages = ref(1);
 const pageSize = 10;
-const statusFilter = ref<string>("");
+const statusFilter = ref<string>("all");
 
 const cancelModalOpen = ref(false);
 const orderToCancel = ref<Order | null>(null);
@@ -132,7 +135,7 @@ const cancelling = ref(false);
 const orderApi = useOrderApi();
 
 const statusOptions = [
-  { value: "", label: "全部状态" },
+  { value: "all", label: "全部状态" },
   { value: "pending", label: "待处理" },
   { value: "printing", label: "打印中" },
   { value: "completed", label: "已完成" },
@@ -140,7 +143,7 @@ const statusOptions = [
   { value: "failed", label: "失败" },
 ];
 
-const statusLabels: Record<string, string> = {
+const statusLabels: Record<OrderStatus, string> = {
   pending: "待处理",
   printing: "打印中",
   completed: "已完成",
@@ -148,12 +151,20 @@ const statusLabels: Record<string, string> = {
   failed: "失败",
 };
 
-const statusColors: Record<string, "warning" | "info" | "success" | "neutral" | "error"> = {
+const statusColors: Record<OrderStatus, "warning" | "info" | "success" | "neutral" | "error"> = {
   pending: "warning",
   printing: "info",
   completed: "success",
   cancelled: "neutral",
   failed: "error",
+};
+
+const getStatusLabel = (status: number): OrderStatus => {
+  return ORDER_STATUS_MAP[status] || "pending";
+};
+
+const getColorModeLabel = (colorMode: number): string => {
+  return COLOR_MODE_MAP[colorMode] === "color" ? "彩色" : "黑白";
 };
 
 const formatDate = (dateStr: string) => {
@@ -166,7 +177,7 @@ const fetchOrders = async () => {
     const result = await orderApi.getList({
       page: currentPage.value,
       page_size: pageSize,
-      status: statusFilter.value as Order["status"] || undefined,
+      status: statusFilter.value === "all" ? undefined : statusFilter.value as OrderStatus,
     });
     orders.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);
@@ -187,7 +198,7 @@ const cancelOrder = async () => {
 
   cancelling.value = true;
   try {
-    await orderApi.cancel(orderToCancel.value.id);
+    await orderApi.cancel(orderToCancel.value.id.toString());
     toast.success("订单已取消");
     await fetchOrders();
   } catch (error) {

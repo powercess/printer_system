@@ -15,7 +15,7 @@ export interface ApiError {
 export interface PaginatedResponse<T> {
   total: number;
   page: number;
-  page_size: number;
+  pageSize: number;
   items: T[];
 }
 

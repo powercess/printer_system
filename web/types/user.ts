@@ -41,12 +41,20 @@ export interface RechargeRequest {
 
 export interface Transaction {
   id: number;
-  user_id: number;
   amount: number;
-  type: "recharge" | "consume" | "refund";
-  description: string;
-  created_at: string;
+  balanceBefore: number;
+  balanceAfter: number;
+  type: number; // 0: recharge, 1: consume, 2: refund
+  relatedId: string;
+  createdAt: string;
 }
+
+// 交易类型映射
+export const TRANSACTION_TYPE_MAP: Record<number, "recharge" | "consume" | "refund"> = {
+  0: "recharge",
+  1: "consume",
+  2: "refund",
+};
 
 export interface TransactionListParams {
   page?: number;

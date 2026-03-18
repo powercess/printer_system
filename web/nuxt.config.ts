@@ -10,7 +10,7 @@ export default defineNuxtConfig({
     "@nuxt/ui",
     "@pinia/nuxt",
   ],
-  css: ["~/assets/css/main.css"],
+  css: ["assets/css/main.css"],
 
   imports: {
     dirs: ["stores", "composables", "api", "types"],
@@ -27,7 +27,6 @@ export default defineNuxtConfig({
   },
 
   alias: {
-    "~": ".",
     "~/types": "./types",
     "~/api": "./api",
     "~/stores": "./stores",

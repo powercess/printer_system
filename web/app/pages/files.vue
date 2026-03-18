@@ -24,15 +24,15 @@
           class="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary transition-colors"
         >
           <div class="flex items-center gap-3">
-            <UIcon :name="getFileIcon(file.file_type)" class="w-10 h-10 text-primary" />
+            <UIcon :name="getFileIcon(file.fileType)" class="w-10 h-10 text-primary" />
             <div>
-              <p class="font-medium">{{ file.file_name }}</p>
+              <p class="font-medium">{{ file.name }}</p>
               <div class="flex items-center gap-2 text-sm text-gray-500">
-                <span>{{ formatFileSize(file.file_size) }}</span>
+                <span>{{ formatFileSize(file.fileSize) }}</span>
                 <span>·</span>
-                <span>{{ file.pages }} 页</span>
+                <span>{{ file.pageCount }} 页</span>
                 <span>·</span>
-                <span>{{ formatDate(file.created_at) }}</span>
+                <span>{{ formatDate(file.uploadTime) }}</span>
               </div>
             </div>
           </div>
@@ -75,7 +75,7 @@
             <UIcon name="i-heroicons-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
             <h3 class="text-lg font-semibold mb-2">确认删除</h3>
             <p class="text-gray-500 mb-6">
-              确定要删除文件 "{{ fileToDelete?.file_name }}" 吗？此操作不可撤销。
+              确定要删除文件 "{{ fileToDelete?.name }}" 吗？此操作不可撤销。
             </p>
             <div class="flex justify-center gap-3">
               <UButton color="neutral" variant="ghost" @click="deleteModalOpen = false">
