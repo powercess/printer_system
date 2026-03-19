@@ -11,7 +11,7 @@
       <UCard>
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-            <UIcon name="i-heroicons-users" class="w-6 h-6 text-blue-600" />
+            <UIcon name="i-heroicons-outline-users" class="w-6 h-6 text-blue-600" />
           </div>
           <div>
             <p class="text-sm text-gray-500">总用户数</p>
@@ -23,7 +23,7 @@
       <UCard>
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
-            <UIcon name="i-heroicons-document-text" class="w-6 h-6 text-green-600" />
+            <UIcon name="i-heroicons-outline-document-text" class="w-6 h-6 text-green-600" />
           </div>
           <div>
             <p class="text-sm text-gray-500">总订单数</p>
@@ -35,7 +35,7 @@
       <UCard>
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
-            <UIcon name="i-heroicons-currency-yen" class="w-6 h-6 text-purple-600" />
+            <UIcon name="i-heroicons-outline-currency-yen" class="w-6 h-6 text-purple-600" />
           </div>
           <div>
             <p class="text-sm text-gray-500">总收入</p>
@@ -47,7 +47,7 @@
       <UCard>
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 rounded-lg bg-yellow-100 dark:bg-yellow-900/50 flex items-center justify-center">
-            <UIcon name="i-heroicons-calendar" class="w-6 h-6 text-yellow-600" />
+            <UIcon name="i-heroicons-outline-calendar" class="w-6 h-6 text-yellow-600" />
           </div>
           <div>
             <p class="text-sm text-gray-500">今日订单</p>
@@ -62,7 +62,7 @@
       <NuxtLink to="/admin/users">
         <UCard class="hover:border-primary transition-colors cursor-pointer">
           <div class="flex items-center gap-3">
-            <UIcon name="i-heroicons-users" class="w-8 h-8 text-primary" />
+            <UIcon name="i-heroicons-outline-users" class="w-8 h-8 text-primary" />
             <div>
               <p class="font-semibold">用户管理</p>
               <p class="text-sm text-gray-500">管理系统用户</p>
@@ -74,7 +74,7 @@
       <NuxtLink to="/admin/files">
         <UCard class="hover:border-primary transition-colors cursor-pointer">
           <div class="flex items-center gap-3">
-            <UIcon name="i-heroicons-document" class="w-8 h-8 text-primary" />
+            <UIcon name="i-heroicons-outline-document" class="w-8 h-8 text-primary" />
             <div>
               <p class="font-semibold">文件管理</p>
               <p class="text-sm text-gray-500">查看所有文件</p>
@@ -86,7 +86,7 @@
       <NuxtLink to="/admin/orders">
         <UCard class="hover:border-primary transition-colors cursor-pointer">
           <div class="flex items-center gap-3">
-            <UIcon name="i-heroicons-clipboard-document-list" class="w-8 h-8 text-primary" />
+            <UIcon name="i-heroicons-outline-clipboard-document-list" class="w-8 h-8 text-primary" />
             <div>
               <p class="font-semibold">订单管理</p>
               <p class="text-sm text-gray-500">查看所有订单</p>
@@ -98,7 +98,7 @@
       <NuxtLink to="/admin/logs">
         <UCard class="hover:border-primary transition-colors cursor-pointer">
           <div class="flex items-center gap-3">
-            <UIcon name="i-heroicons-document-text" class="w-8 h-8 text-primary" />
+            <UIcon name="i-heroicons-outline-document-text" class="w-8 h-8 text-primary" />
             <div>
               <p class="font-semibold">日志管理</p>
               <p class="text-sm text-gray-500">查看系统日志</p>

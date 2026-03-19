@@ -15,7 +15,7 @@ export const useAppToast = () => {
       toast.add({
         title: message,
         color: "success",
-        icon: "i-heroicons-check-circle",
+        icon: "i-heroicons-solid-check-circle",
       });
     },
     error: (message: string) => {
@@ -23,7 +23,7 @@ export const useAppToast = () => {
       toast.add({
         title: message,
         color: "error",
-        icon: "i-heroicons-x-circle",
+        icon: "i-heroicons-solid-x-circle",
       });
     },
     warning: (message: string) => {
@@ -31,7 +31,7 @@ export const useAppToast = () => {
       toast.add({
         title: message,
         color: "warning",
-        icon: "i-heroicons-exclamation-triangle",
+        icon: "i-heroicons-solid-exclamation-triangle",
       });
     },
     info: (message: string) => {
@@ -39,7 +39,7 @@ export const useAppToast = () => {
       toast.add({
         title: message,
         color: "info",
-        icon: "i-heroicons-information-circle",
+        icon: "i-heroicons-solid-information-circle",
       });
     },
   };

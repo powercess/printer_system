@@ -7,7 +7,7 @@
 
     <div v-else-if="success" class="text-center">
       <div class="w-20 h-20 mx-auto mb-6 bg-green-100 rounded-full flex items-center justify-center">
-        <UIcon name="i-heroicons-check" class="w-10 h-10 text-green-600" />
+        <UIcon name="i-heroicons-solid-check" class="w-10 h-10 text-green-600" />
       </div>
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">支付成功</h1>
       <p class="text-gray-500 mb-2">充值金额: ¥{{ amount }}</p>
@@ -19,7 +19,7 @@
 
     <div v-else class="text-center">
       <div class="w-20 h-20 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
-        <UIcon name="i-heroicons-x-mark" class="w-10 h-10 text-red-600" />
+        <UIcon name="i-heroicons-solid-x-mark" class="w-10 h-10 text-red-600" />
       </div>
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">支付失败</h1>
       <p class="text-gray-500 mb-6">{{ errorMessage }}</p>

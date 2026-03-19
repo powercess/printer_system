@@ -4,7 +4,7 @@
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
         社区广场
       </h1>
-      <UButton color="primary" icon="i-heroicons-plus" @click="shareModalOpen = true">
+      <UButton color="primary" icon="i-heroicons-solid-plus" @click="shareModalOpen = true">
         发布分享
       </UButton>
     </div>
@@ -15,7 +15,7 @@
     </div>
 
     <div v-else-if="posts.length === 0" class="text-center py-8 text-gray-500">
-      <UIcon name="i-heroicons-chat-bubble-left-right" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+      <UIcon name="i-heroicons-outline-chat-bubble-left-right" class="w-12 h-12 mx-auto mb-4 opacity-50" />
       <p>暂无分享内容</p>
       <p class="text-sm mt-2">成为第一个分享的人吧！</p>
     </div>
@@ -35,7 +35,7 @@
             <p class="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{{ post.content }}</p>
 
             <div v-if="post.file_name" class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center gap-2">
-              <UIcon name="i-heroicons-document" class="w-5 h-5 text-primary" />
+              <UIcon name="i-heroicons-outline-document" class="w-5 h-5 text-primary" />
               <span class="text-sm">{{ post.file_name }}</span>
             </div>
 
@@ -45,7 +45,7 @@
                 :class="post.is_liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'"
                 @click="toggleLike(post)"
               >
-                <UIcon :name="post.is_liked ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'" class="w-5 h-5" />
+                <UIcon :name="post.is_liked ? 'i-heroicons-solid-heart' : 'i-heroicons-outline-heart'" class="w-5 h-5" />
                 <span>{{ post.likes_count }}</span>
               </button>
 
@@ -121,7 +121,7 @@
       <template #content>
         <UCard>
           <div class="text-center">
-            <UIcon name="i-heroicons-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
+            <UIcon name="i-heroicons-solid-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
             <h3 class="text-lg font-semibold mb-2">确认删除</h3>
             <p class="text-gray-500 mb-6">
               确定要删除这条分享吗？此操作不可撤销。

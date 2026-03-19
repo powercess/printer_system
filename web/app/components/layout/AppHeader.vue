@@ -4,7 +4,7 @@
       <div class="flex items-center justify-between h-16">
         <!-- Logo -->
         <NuxtLink to="/" class="flex items-center space-x-2" @click="handleLogoClick">
-          <UIcon name="i-heroicons-printer" class="w-8 h-8 text-primary" />
+          <UIcon name="i-heroicons-outline-printer" class="w-8 h-8 text-primary" />
           <span class="text-xl font-bold text-gray-900 dark:text-white">
             自助打印
           </span>
@@ -35,7 +35,7 @@
                 <UButton
                   color="neutral"
                   variant="ghost"
-                  trailing-icon="i-heroicons-chevron-down"
+                  trailing-icon="i-heroicons-solid-chevron-down"
                 >
                   {{ username }}
                 </UButton>
@@ -56,7 +56,7 @@
             class="md:hidden"
             color="neutral"
             variant="ghost"
-            icon="i-heroicons-bars-3"
+            icon="i-heroicons-outline-bars-3"
             @click="toggleMobileMenu"
           />
         </div>
@@ -118,7 +118,7 @@ const userMenuItems = [
   [
     {
       label: "个人中心",
-      icon: "i-heroicons-user",
+      icon: "i-heroicons-outline-user",
       onSelect: () => {
         logger.info("用户菜单选择", { item: "个人中心" });
         logger.debug("导航到个人中心");
@@ -129,7 +129,7 @@ const userMenuItems = [
   [
     {
       label: "退出登录",
-      icon: "i-heroicons-arrow-right-on-rectangle",
+      icon: "i-heroicons-outline-arrow-right-on-rectangle",
       onSelect: () => {
         logger.info("用户退出登录", { username: userStore.username });
         authStore.logout();

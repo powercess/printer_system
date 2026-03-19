@@ -22,7 +22,7 @@
             color="error"
             variant="ghost"
             size="sm"
-            icon="i-heroicons-trash"
+            icon="i-heroicons-outline-trash"
             @click="confirmDelete(row.original)"
           />
         </template>
@@ -43,7 +43,7 @@
       <template #content>
         <UCard>
           <div class="text-center">
-            <UIcon name="i-heroicons-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
+            <UIcon name="i-heroicons-solid-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
             <h3 class="text-lg font-semibold mb-2">确认删除</h3>
             <p class="text-gray-500 mb-6">
               确定要删除文件 "{{ fileToDelete?.file_name }}" 吗？此操作不可撤销。

@@ -47,7 +47,7 @@
         @dragleave.prevent="isDragging = false"
         @drop.prevent="handleDrop"
       >
-        <UIcon name="i-heroicons-cloud-arrow-up" class="w-12 h-12 mx-auto text-gray-400 mb-4" />
+        <UIcon name="i-heroicons-outline-cloud-arrow-up" class="w-12 h-12 mx-auto text-gray-400 mb-4" />
         <p class="text-gray-600 dark:text-gray-400 mb-2">
           拖拽文件到此处，或
         </p>
@@ -70,13 +70,13 @@
       <div v-if="selectedFile" class="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <UIcon name="i-heroicons-document" class="w-8 h-8 text-primary" />
+            <UIcon name="i-heroicons-outline-document" class="w-8 h-8 text-primary" />
             <div>
               <p class="font-medium">{{ selectedFile.name }}</p>
               <p class="text-sm text-gray-500">{{ formatFileSize(selectedFile.size) }}</p>
             </div>
           </div>
-          <UButton color="neutral" variant="ghost" icon="i-heroicons-x-mark" @click="clearFile" />
+          <UButton color="neutral" variant="ghost" icon="i-heroicons-solid-x-mark" @click="clearFile" />
         </div>
       </div>
     </UCard>

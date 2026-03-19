@@ -3,7 +3,7 @@
     <div class="max-w-md w-full space-y-8">
       <!-- Header -->
       <div class="text-center">
-        <UIcon name="i-heroicons-printer" class="w-12 h-12 mx-auto text-primary mb-4" />
+        <UIcon name="i-heroicons-outline-printer" class="w-12 h-12 mx-auto text-primary mb-4" />
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
           登录
         </h1>
@@ -19,7 +19,7 @@
             <UInput
               v-model="form.username"
               placeholder="请输入用户名"
-              icon="i-heroicons-user"
+              icon="i-heroicons-outline-user"
             />
           </UFormField>
 
@@ -28,7 +28,7 @@
               v-model="form.password"
               type="password"
               placeholder="请输入密码"
-              icon="i-heroicons-lock-closed"
+              icon="i-heroicons-outline-lock-closed"
             />
           </UFormField>
 

@@ -3,7 +3,7 @@
     <div class="container mx-auto px-4 py-6">
       <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
         <div class="flex items-center space-x-2">
-          <UIcon name="i-heroicons-printer" class="w-5 h-5 text-primary" />
+          <UIcon name="i-heroicons-outline-printer" class="w-5 h-5 text-primary" />
           <span class="text-gray-600 dark:text-gray-400">
             Powercess 自助打印系统
           </span>

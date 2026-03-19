@@ -13,7 +13,7 @@
       </div>
 
       <div v-else-if="files.length === 0" class="text-center py-8 text-gray-500">
-        <UIcon name="i-heroicons-document" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+        <UIcon name="i-heroicons-outline-document" class="w-12 h-12 mx-auto mb-4 opacity-50" />
         <p>暂无文件</p>
       </div>
 
@@ -50,7 +50,7 @@
               color="error"
               variant="ghost"
               size="sm"
-              icon="i-heroicons-trash"
+              icon="i-heroicons-outline-trash"
               @click="confirmDelete(file)"
             />
           </div>
@@ -72,7 +72,7 @@
       <template #content>
         <UCard>
           <div class="text-center">
-            <UIcon name="i-heroicons-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
+            <UIcon name="i-heroicons-solid-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
             <h3 class="text-lg font-semibold mb-2">确认删除</h3>
             <p class="text-gray-500 mb-6">
               确定要删除文件 "{{ fileToDelete?.name }}" 吗？此操作不可撤销。
@@ -118,10 +118,10 @@ const deleting = ref(false);
 const fileApi = useFileApi();
 
 const getFileIcon = (type: string) => {
-  if (type.includes("pdf")) return "i-heroicons-document-text";
-  if (type.includes("word") || type.includes("document")) return "i-heroicons-document-text";
-  if (type.includes("image")) return "i-heroicons-photo";
-  return "i-heroicons-document";
+  if (type.includes("pdf")) return "i-heroicons-outline-document-text";
+  if (type.includes("word") || type.includes("document")) return "i-heroicons-outline-document-text";
+  if (type.includes("image")) return "i-heroicons-outline-photo";
+  return "i-heroicons-outline-document";
 };
 
 const formatFileSize = (bytes: number) => {

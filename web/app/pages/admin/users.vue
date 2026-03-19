@@ -4,7 +4,7 @@
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
         用户管理
       </h1>
-      <UButton color="primary" icon="i-heroicons-plus" @click="createModalOpen = true">
+      <UButton color="primary" icon="i-heroicons-solid-plus" @click="createModalOpen = true">
         添加用户
       </UButton>
     </div>
@@ -14,7 +14,7 @@
       <UInput
         v-model="searchQuery"
         placeholder="搜索用户..."
-        icon="i-heroicons-magnifying-glass"
+        icon="i-heroicons-outline-magnifying-glass"
         class="max-w-xs"
         @keyup.enter="fetchUsers"
       />
@@ -44,14 +44,14 @@
               color="primary"
               variant="ghost"
               size="sm"
-              icon="i-heroicons-pencil"
+              icon="i-heroicons-outline-pencil"
               @click="openEditModal(row.original)"
             />
             <UButton
               color="error"
               variant="ghost"
               size="sm"
-              icon="i-heroicons-trash"
+              icon="i-heroicons-outline-trash"
               @click="confirmDelete(row.original)"
             />
           </div>
@@ -149,7 +149,7 @@
       <template #content>
         <UCard>
           <div class="text-center">
-            <UIcon name="i-heroicons-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
+            <UIcon name="i-heroicons-solid-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
             <h3 class="text-lg font-semibold mb-2">确认删除</h3>
             <p class="text-gray-500 mb-6">
               确定要删除用户 "{{ userToDelete?.username }}" 吗？此操作不可撤销。

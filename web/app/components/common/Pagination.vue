@@ -4,7 +4,7 @@
       :disabled="currentPage <= 1"
       color="neutral"
       variant="ghost"
-      icon="i-heroicons-chevron-left"
+      icon="i-heroicons-solid-chevron-left"
       @click="goToPage(currentPage - 1)"
     />
 
@@ -27,7 +27,7 @@
       :disabled="currentPage >= totalPages"
       color="neutral"
       variant="ghost"
-      icon="i-heroicons-chevron-right"
+      icon="i-heroicons-solid-chevron-right"
       @click="goToPage(currentPage + 1)"
     />
   </div>

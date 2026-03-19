@@ -176,9 +176,9 @@ const transactionTypeOptions = [
 const getTypeStyle = (type: number) => {
   const typeStr = TRANSACTION_TYPE_MAP[type] || "consume";
   const styles: Record<string, { bgClass: string; textClass: string; icon: string; prefix: string }> = {
-    recharge: { bgClass: "bg-green-100 text-green-600", textClass: "text-green-600", icon: "i-heroicons-plus", prefix: "+" },
-    consume: { bgClass: "bg-red-100 text-red-600", textClass: "text-red-600", icon: "i-heroicons-minus", prefix: "-" },
-    refund: { bgClass: "bg-blue-100 text-blue-600", textClass: "text-green-600", icon: "i-heroicons-arrow-uturn-left", prefix: "+" },
+    recharge: { bgClass: "bg-green-100 text-green-600", textClass: "text-green-600", icon: "i-heroicons-solid-plus", prefix: "+" },
+    consume: { bgClass: "bg-red-100 text-red-600", textClass: "text-red-600", icon: "i-heroicons-solid-minus", prefix: "-" },
+    refund: { bgClass: "bg-blue-100 text-blue-600", textClass: "text-green-600", icon: "i-heroicons-outline-arrow-uturn-left", prefix: "+" },
   };
   return styles[typeStr] || styles.consume;
 };
