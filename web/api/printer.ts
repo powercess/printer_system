@@ -25,7 +25,7 @@ export const usePrinterApi = () => {
     // 获取CUPS打印机列表
     getCupsList: () => {
       apiLog.requestStart("GET", "/api/printer/cups/list");
-      return get<CupsPrinter[]>("/api/printer/cups/list");
+      return get<PaginatedResponse<CupsPrinter>>("/api/printer/cups/list");
     },
 
     // 打印文件

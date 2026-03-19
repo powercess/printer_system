@@ -40,3 +40,7 @@ else/
 
 ### .env ###
 .env
+.env.test
+
+### application caches ###
+uploads

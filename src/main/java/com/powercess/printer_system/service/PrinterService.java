@@ -6,6 +6,8 @@ public interface PrinterService {
 
     Map<String, Object> healthCheck();
 
+    Map<String, Object> getCupsServersStatus();
+
     Map<String, Object> getPrintersStatus();
 
     Map<String, Object> getCupsPrinters();

@@ -26,14 +26,19 @@ export interface PaginationParams {
 
 // 通用文件上传响应
 export interface UploadResponse {
-  file_id: string;
-  file_name: string;
-  file_path: string;
-  file_size: number;
+  fileId: number;
+  name: string;
+  fileType: string;
+  fileSize: number;
+  pageCount: number;
+  uploadTime: string;
+  filePath: string;
 }
 
 // 价格估算响应
 export interface PriceEstimate {
-  price: number;
-  pages: number;
+  originalAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  pageCount: number;
 }

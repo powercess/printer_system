@@ -27,6 +27,14 @@ public class PrinterController {
         return printerService.healthCheck();
     }
 
+    @Operation(summary = "获取所有CUPS服务器状态")
+    @GetMapping("/servers")
+    public Result<Map<String, Object>> getCupsServersStatus() {
+        log.debug("Getting CUPS servers status");
+        Map<String, Object> result = printerService.getCupsServersStatus();
+        return Result.success("获取成功", result);
+    }
+
     @Operation(summary = "获取打印机状态")
     @GetMapping("/status")
     public Result<Map<String, Object>> getPrintersStatus() {

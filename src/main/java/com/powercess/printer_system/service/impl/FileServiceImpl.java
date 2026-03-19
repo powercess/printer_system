@@ -33,10 +33,38 @@ public class FileServiceImpl implements FileService {
     private final FileMapper fileMapper;
     private final AppProperties appProperties;
 
+    /**
+     * 初始化上传根目录，确保目录存在且可写
+     */
+    private Path ensureUploadRootDirectory() {
+        String uploadDir = appProperties.upload().dir();
+        Path rootPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+
+        // 如果目录不存在，创建它
+        if (!Files.exists(rootPath)) {
+            try {
+                Files.createDirectories(rootPath);
+                log.info("Created upload root directory: {}", rootPath);
+            } catch (IOException e) {
+                log.error("Failed to create upload root directory: {}", rootPath, e);
+                throw new BusinessException(500, "无法创建上传目录: " + rootPath);
+            }
+        }
+
+        // 检查目录是否可写
+        if (!Files.isWritable(rootPath)) {
+            log.error("Upload directory is not writable: {}", rootPath);
+            throw new BusinessException(500, "上传目录不可写: " + rootPath);
+        }
+
+        log.debug("Upload root directory ready: {}", rootPath);
+        return rootPath;
+    }
+
     @Override
     @Transactional
     public Map<String, Object> upload(Long userId, MultipartFile file) {
-        log.debug("Uploading file for user: userId={}", userId);
+        log.info("Uploading file for user: userId={}", userId);
 
         if (file.isEmpty()) {
             log.warn("Empty file upload attempt: userId={}", userId);
@@ -44,44 +72,60 @@ public class FileServiceImpl implements FileService {
         }
 
         String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            originalFilename = "unknown_file";
+        }
+
         String fileExtension = getFileExtension(originalFilename);
         String fileType = getFileType(fileExtension);
         long fileSize = file.getSize();
 
-        log.debug("File info: name={}, extension={}, type={}, size={}bytes", originalFilename, fileExtension, fileType, fileSize);
+        log.info("File info: name={}, extension={}, type={}, size={}bytes", originalFilename, fileExtension, fileType, fileSize);
 
+        // 确保上传根目录存在
+        Path rootPath = ensureUploadRootDirectory();
+
+        // 构建按日期分类的子目录
         LocalDateTime now = LocalDateTime.now();
-        String relativePath = now.format(DateTimeFormatter.ofPattern("files/yyyy/MM/dd"));
-        String uploadDir = appProperties.upload().dir();
-        Path uploadPath = Paths.get(uploadDir, relativePath);
+        String datePath = now.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+        Path uploadPath = rootPath.resolve(datePath);
 
+        // 创建日期子目录
         try {
             Files.createDirectories(uploadPath);
-            log.trace("Upload directory created: {}", uploadPath);
+            log.debug("Created upload subdirectory: {}", uploadPath);
         } catch (IOException e) {
-            log.error("Failed to create upload directory: {}", uploadPath, e);
-            throw new BusinessException(500, "创建上传目录失败");
+            log.error("Failed to create upload subdirectory: {}", uploadPath, e);
+            throw new BusinessException(500, "创建上传目录失败: " + e.getMessage());
         }
 
-        String uniqueFilename = UUID.randomUUID().toString().replace("-", "") + "_" + originalFilename;
+        // 生成唯一文件名
+        String uniqueFilename = UUID.randomUUID().toString().replace("-", "") + "_" + sanitizeFilename(originalFilename);
         Path filePath = uploadPath.resolve(uniqueFilename);
 
+        // 保存文件
         try {
-            file.transferTo(filePath.toFile());
-            log.debug("File saved: {}", filePath);
+            file.transferTo(filePath);
+            log.info("File saved successfully: {}", filePath);
         } catch (IOException e) {
             log.error("Failed to save file: {}", filePath, e);
-            throw new BusinessException(500, "文件保存失败");
+            throw new BusinessException(500, "文件保存失败: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            log.error("File upload state error: {}", filePath, e);
+            throw new BusinessException(500, "文件上传状态错误: " + e.getMessage());
         }
 
+        // 计算页数
         int pageCount = 1;
         if ("pdf".equals(fileType)) {
             pageCount = countPdfPages(filePath.toString());
             log.debug("PDF page count: {}", pageCount);
         }
 
-        String fileRelativePath = relativePath + "/" + uniqueFilename;
+        // 构建相对路径（用于数据库存储）
+        String fileRelativePath = datePath + "/" + uniqueFilename;
 
+        // 保存文件信息到数据库
         FileEntity fileEntity = new FileEntity();
         fileEntity.setUserId(userId);
         fileEntity.setName(originalFilename);
@@ -91,8 +135,20 @@ public class FileServiceImpl implements FileService {
         fileEntity.setFilePath(fileRelativePath);
         fileEntity.setUploadTime(now);
 
-        fileMapper.insert(fileEntity);
-        log.info("File uploaded: fileId={}, userId={}, name={}, size={}bytes, pages={}",
+        try {
+            fileMapper.insert(fileEntity);
+        } catch (Exception e) {
+            // 数据库保存失败，尝试删除已上传的文件
+            log.error("Failed to save file info to database, cleaning up file: {}", filePath, e);
+            try {
+                Files.deleteIfExists(filePath);
+            } catch (IOException deleteError) {
+                log.warn("Failed to cleanup file after database error: {}", filePath);
+            }
+            throw new BusinessException(500, "文件信息保存失败");
+        }
+
+        log.info("File uploaded successfully: fileId={}, userId={}, name={}, size={}bytes, pages={}",
             fileEntity.getId(), userId, originalFilename, fileSize, pageCount);
 
         Map<String, Object> result = new HashMap<>();
@@ -105,6 +161,17 @@ public class FileServiceImpl implements FileService {
         result.put("filePath", fileRelativePath);
 
         return result;
+    }
+
+    /**
+     * 清理文件名，移除可能导致问题的字符
+     */
+    private String sanitizeFilename(String filename) {
+        if (filename == null) {
+            return "unknown";
+        }
+        // 移除路径分隔符和其他可能导致问题的字符
+        return filename.replaceAll("[/\\\\:*?\"<>|]", "_");
     }
 
     @Override

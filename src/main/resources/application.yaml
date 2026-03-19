@@ -4,7 +4,6 @@ spring:
   config:
     import: optional:file:.env[.properties]
 
-  
   # DataSource Configuration
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:print_system}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
@@ -37,8 +36,8 @@ mybatis-plus:
     db-config:
       id-type: auto
       logic-delete-field: deletedAt
-      logic-delete-value: 'NOW()'
-      logic-not-delete-value: 'NULL'
+      logic-delete-value: "NOW()"
+      logic-not-delete-value: "NULL"
 
 # Sa-Token Configuration
 sa-token:
@@ -58,11 +57,31 @@ app:
   upload:
     dir: ${UPLOAD_DIR:./uploads}
   cups:
+    # 单服务器配置（向后兼容）
     host: ${CUPS_HOST:localhost}
     port: ${CUPS_PORT:631}
     username: ${CUPS_USERNAME:}
     password: ${CUPS_PASSWORD:}
     secure: ${CUPS_SECURE:false}
+    # 负载均衡策略
+    strategy: ${CUPS_STRATEGY:priority}
+    # 模拟模式
+    mock-mode: ${CUPS_MOCK_MODE:false}
+    # 连接超时
+    timeout: ${CUPS_TIMEOUT:30000}
+    # 多服务器配置示例（通过环境变量配置）
+    # servers:
+    #   - id: main-cups
+    #     host: 192.168.1.100
+    #     port: 631
+    #     username: admin
+    #     password: secret
+    #     secure: true
+    #     priority: 10
+    #   - id: backup-cups
+    #     host: 192.168.1.101
+    #     port: 631
+    #     priority: 5
   payment:
     pid: ${PAY_PID:}
     key: ${PAY_KEY:}

@@ -11,8 +11,9 @@ export interface PrinterStatus {
 export interface CupsPrinter {
   name: string;
   description: string;
-  status: "idle" | "printing" | "stopped";
-  is_default: boolean;
+  location?: string;
+  deviceUri?: string;
+  state?: "idle" | "printing" | "stopped" | null;
 }
 
 export interface PrintRequest {

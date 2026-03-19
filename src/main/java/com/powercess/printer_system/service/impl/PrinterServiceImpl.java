@@ -1,6 +1,7 @@
 package com.powercess.printer_system.service.impl;
 
 import com.powercess.printer_system.config.AppProperties;
+import com.powercess.printer_system.cups.CupsOperations;
 import com.powercess.printer_system.entity.FileEntity;
 import com.powercess.printer_system.entity.Order;
 import com.powercess.printer_system.exception.BusinessException;
@@ -60,6 +61,34 @@ public class PrinterServiceImpl implements PrinterService {
             result.put("error", e.getMessage());
             result.put("printerCount", 0);
             result.put("printers", List.of());
+        }
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getCupsServersStatus() {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Map<String, CupsOperations.ConnectionStatus> serverStatus = cupsClientService.getAllServerStatus();
+            result.put("servers", serverStatus.entrySet().stream().map(entry -> {
+                Map<String, Object> server = new HashMap<>();
+                server.put("id", entry.getKey());
+                server.put("status", entry.getValue().name());
+                return server;
+            }).toList());
+            result.put("totalServers", serverStatus.size());
+            long connectedCount = serverStatus.values().stream()
+                .filter(s -> s == CupsOperations.ConnectionStatus.CONNECTED)
+                .count();
+            result.put("connectedServers", connectedCount);
+            result.put("healthy", connectedCount > 0);
+        } catch (Exception e) {
+            log.error("Failed to get CUPS servers status: {}", e.getMessage());
+            result.put("servers", List.of());
+            result.put("totalServers", 0);
+            result.put("connectedServers", 0);
+            result.put("healthy", false);
+            result.put("error", e.getMessage());
         }
         return result;
     }
@@ -213,13 +242,19 @@ public class PrinterServiceImpl implements PrinterService {
             FileEntity file = fileMapper.findByIdNotDeleted(fileId)
                 .orElseThrow(() -> new BusinessException(404, "文件不存在"));
 
-            // 构建文件路径
+            // 构建文件绝对路径
             String uploadDir = appProperties.upload().dir();
-            Path filePath = Paths.get(uploadDir, file.getFilePath());
-            log.info("File path: {}", filePath);
+            Path filePath = Paths.get(uploadDir).toAbsolutePath().normalize().resolve(file.getFilePath());
+            log.info("File absolute path: {}", filePath);
 
             if (!Files.exists(filePath)) {
+                log.error("File not found at path: {}", filePath);
                 throw new BusinessException(404, "文件不存在: " + filePath);
+            }
+
+            if (!Files.isReadable(filePath)) {
+                log.error("File not readable: {}", filePath);
+                throw new BusinessException(500, "文件无法读取: " + filePath);
             }
 
             // 获取打印机
@@ -256,7 +291,7 @@ public class PrinterServiceImpl implements PrinterService {
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Print execution failed", e);
+            log.error("Print execution failed: {}", e.getMessage(), e);
             result.put("success", false);
             result.put("message", "打印失败: " + e.getMessage());
         }

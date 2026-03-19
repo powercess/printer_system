@@ -5,6 +5,9 @@ spring:
     username: sa
     password:
 
+  config:
+    import: optional:file:.env.test[.properties]
+
   sql:
     init:
       mode: always
@@ -35,6 +38,7 @@ sa-token:
   is-read-header: true
   is-read-cookie: false
 
+# 应用测试配置
 app:
   upload:
     dir: /tmp/test-uploads
@@ -44,12 +48,15 @@ app:
     api-url: https://test-api.example.com
     submit-url: https://test-submit.example.com
     query-url: https://test-query.example.com
+  # CUPS 测试配置 - 支持环境变量覆盖
   cups:
-    host: localhost
-    port: 631
-    username: test
-    password: test
+    host: ${CUPS_TEST_HOST:192.168.1.149}
+    port: ${CUPS_TEST_PORT:8631}
+    username: ${CUPS_TEST_USERNAME:root}
+    password: ${CUPS_TEST_PASSWORD:}
     secure: false
+    mock-mode: ${CUPS_MOCK_MODE:false}
+    timeout: 30000
   base-url: http://localhost:8080
 
 logging:

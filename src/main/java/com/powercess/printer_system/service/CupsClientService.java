@@ -1,5 +1,6 @@
 package com.powercess.printer_system.service;
 
+import com.powercess.printer_system.cups.CupsOperations;
 import org.cups4j.CupsPrinter;
 import org.cups4j.PrintJobAttributes;
 
@@ -14,6 +15,11 @@ public interface CupsClientService {
      * 测试 CUPS 连接
      */
     boolean testConnection();
+
+    /**
+     * 获取所有CUPS服务器状态
+     */
+    Map<String, CupsOperations.ConnectionStatus> getAllServerStatus();
 
     /**
      * 获取所有打印机列表
