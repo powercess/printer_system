@@ -209,20 +209,29 @@ const handleRecharge = async () => {
   recharging.value = true;
   try {
     log.time("充值请求");
-    await userApi.recharge({
+    const result = await userApi.recharge({
       amount: rechargeAmount.value,
-      payment_method: paymentMethod.value,
+      paymentMethod: paymentMethod.value,
     });
     log.timeEnd("充值请求");
 
-    log.success("充值成功", { amount: rechargeAmount.value });
-    toast.success("充值成功");
-    await userStore.fetchBalance();
-    await fetchTransactions();
+    log.info("充值订单创建成功", result);
 
-    // Reset selection
-    selectedAmount.value = null;
-    customAmount.value = null;
+    // 跳转到支付页面
+    if (result.payUrl) {
+      log.info("跳转到支付页面", { payUrl: result.payUrl, outTradeNo: result.outTradeNo });
+      // 保存订单号到 localStorage，支付返回后查询状态
+      localStorage.setItem("pendingRecharge", JSON.stringify({
+        outTradeNo: result.outTradeNo,
+        amount: result.amount,
+        timestamp: Date.now(),
+      }));
+      // 跳转到支付页面
+      window.location.href = result.payUrl;
+    } else {
+      log.error("支付链接为空");
+      toast.error("获取支付链接失败");
+    }
   } catch (error) {
     log.error("充值失败", error);
     toast.error((error as { message?: string })?.message || "充值失败");
@@ -251,10 +260,32 @@ const fetchTransactions = async () => {
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
   log.mounted();
   log.debug("初始化钱包页面，获取余额和交易记录");
-  userStore.fetchBalance();
-  fetchTransactions();
+
+  // 检查是否有待处理的充值
+  const pendingRecharge = localStorage.getItem("pendingRecharge");
+  if (pendingRecharge) {
+    try {
+      const { outTradeNo, timestamp } = JSON.parse(pendingRecharge);
+      // 如果订单是最近10分钟内创建的，查询状态
+      if (Date.now() - timestamp < 10 * 60 * 1000) {
+        log.info("检测到待处理充值，查询状态", { outTradeNo });
+        const result = await userApi.getRechargeStatus(outTradeNo);
+        if (result.status === 1) {
+          toast.success(`充值成功，到账 ¥${result.amount}`);
+        }
+      }
+      // 清除待处理记录
+      localStorage.removeItem("pendingRecharge");
+    } catch (error) {
+      log.warn("查询待处理充值状态失败", error);
+      localStorage.removeItem("pendingRecharge");
+    }
+  }
+
+  await userStore.fetchBalance();
+  await fetchTransactions();
 });
 </script>

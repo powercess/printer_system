@@ -43,7 +43,7 @@ export interface WalletBalance {
 
 export interface RechargeRequest {
   amount: number;
-  payment_method: string;
+  paymentMethod: string;
 }
 
 export interface Transaction {

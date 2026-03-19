@@ -1,25 +1,24 @@
 // 支付相关类型
 
 export interface CreatePaymentRequest {
-  amount: number;
-  payment_method: "alipay" | "wechat" | "balance";
-  order_id?: string;
+  orderId: number;
+  paymentMethod: "alipay" | "wechat" | "wallet";
 }
 
 export interface Payment {
   id: string;
-  user_id: number;
+  userId: number;
   amount: number;
-  payment_method: "alipay" | "wechat" | "balance";
+  paymentMethod: "alipay" | "wechat" | "wallet";
   status: "pending" | "success" | "failed" | "cancelled";
-  order_id?: string;
-  created_at: string;
-  paid_at?: string;
+  orderId?: number;
+  createdAt: string;
+  paidAt?: string;
 }
 
 export interface PaymentStatus {
-  payment_id: string;
+  paymentId: string;
   status: Payment["status"];
-  qr_code_url?: string;
-  redirect_url?: string;
+  qrCodeUrl?: string;
+  redirectUrl?: string;
 }

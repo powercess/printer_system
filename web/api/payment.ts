@@ -17,9 +17,8 @@ export const usePaymentApi = () => {
     // 创建支付
     create: (data: CreatePaymentRequest) => {
       apiLog.requestStart("POST", "/api/payment/create", {
-        orderId: data.order_id,
-        amount: data.amount,
-        paymentMethod: data.payment_method,
+        orderId: data.orderId,
+        paymentMethod: data.paymentMethod,
       });
       return post<Payment>("/api/payment/create", data);
     },
@@ -27,7 +26,7 @@ export const usePaymentApi = () => {
     // 获取支付状态
     getStatus: (paymentId: string) => {
       apiLog.requestStart("GET", "/api/payment/status", { paymentId });
-      return get<PaymentStatus>("/api/payment/status", { payment_id: paymentId });
+      return get<PaymentStatus>("/api/payment/status", { paymentId });
     },
   };
 };

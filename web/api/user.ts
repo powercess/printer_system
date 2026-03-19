@@ -53,8 +53,14 @@ export const useUserApi = () => {
 
     // 钱包充值
     recharge: (data: RechargeRequest) => {
-      apiLog.requestStart("POST", "/api/user/wallet/recharge", { amount: data.amount, paymentMethod: data.payment_method });
-      return post<Transaction>("/api/user/wallet/recharge", data);
+      apiLog.requestStart("POST", "/api/user/wallet/recharge", { amount: data.amount, paymentMethod: data.paymentMethod });
+      return post<{ outTradeNo: string; payUrl: string; qrcode: string | null; amount: number }>("/api/user/wallet/recharge", data);
+    },
+
+    // 查询充值状态
+    getRechargeStatus: (outTradeNo: string, forceQuery: boolean = true) => {
+      apiLog.requestStart("GET", "/api/user/wallet/recharge/status", { outTradeNo, forceQuery });
+      return get<{ outTradeNo: string; amount: number; status: number; balance?: number; paidAt?: string }>("/api/user/wallet/recharge/status", { outTradeNo, forceQuery });
     },
 
     // 获取钱包流水
