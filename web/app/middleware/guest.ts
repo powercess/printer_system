@@ -6,7 +6,8 @@ import { createMiddlewareLogger } from "../../utils/logger";
 const log = createMiddlewareLogger("guest");
 
 export default defineNuxtRouteMiddleware((to) => {
-  log.execute(to.from?.path || "未知", to.path);
+  const fromPath = (to as { from?: { path?: string } }).from?.path || "未知";
+  log.execute(fromPath, to.path);
 
   // Skip on server side to avoid hydration mismatch
   if (import.meta.server) {

@@ -75,6 +75,14 @@ export const useApiRequest = () => {
 
       // 检查业务逻辑错误
       if (data.code !== 200 && data.code !== 201) {
+        // 401 未授权，自动退出登录
+        if (data.code === 401) {
+          apiLog.requestError(method, endpoint, { code: data.code, message: "未授权，自动退出登录" });
+          const authStore = useAuthStore();
+          authStore.logout();
+          throw createApiError(401, "登录已过期，请重新登录", data.data);
+        }
+
         const error = createApiError(
           data.code,
           data.message || "请求失败",
@@ -153,6 +161,14 @@ export const useApiRequest = () => {
         const data: ApiResponse<T> = await response.json();
 
         if (data.code !== 200 && data.code !== 201) {
+          // 401 未授权，自动退出登录
+          if (data.code === 401) {
+            apiLog.requestError("UPLOAD", endpoint, { code: data.code, message: "未授权，自动退出登录" });
+            const authStore = useAuthStore();
+            authStore.logout();
+            throw createApiError(401, "登录已过期，请重新登录", data.data);
+          }
+
           const error = createApiError(
             data.code,
             data.message || "上传失败",
