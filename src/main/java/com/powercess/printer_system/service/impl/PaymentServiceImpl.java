@@ -44,7 +44,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public Map<String, Object> createPayment(Long userId, PaymentCreateRequest request) {
+    public Map<String, Object> createPayment(Long userId, PaymentCreateRequest request, String clientIp) {
         Order order = orderMapper.selectById(request.orderId());
         if (order == null) {
             throw new BusinessException(404, "订单不存在");
@@ -65,7 +65,7 @@ public class PaymentServiceImpl implements PaymentService {
             return handleWalletPayment(userId, order);
         }
 
-        return handleThirdPartyPayment(userId, order, paymentMethod);
+        return handleThirdPartyPayment(userId, order, paymentMethod, clientIp);
     }
 
     private Map<String, Object> handleWalletPayment(Long userId, Order order) {
@@ -108,7 +108,6 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setTransactionId(transactionId);
         payment.setStatus(1);
         payment.setPaidAt(LocalDateTime.now());
-        payment.setCreatedAt(LocalDateTime.now());
         paymentMapper.insert(payment);
 
         order.setStatus(1);
@@ -131,16 +130,17 @@ public class PaymentServiceImpl implements PaymentService {
         return result;
     }
 
-    private Map<String, Object> handleThirdPartyPayment(Long userId, Order order, String paymentMethod) {
+    private Map<String, Object> handleThirdPartyPayment(Long userId, Order order, String paymentMethod, String clientIp) {
         String outTradeNo = "PRINT" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + order.getId();
         String payType = paymentMethod.equals("wechat") ? "wxpay" : "alipay";
 
         String notifyUrl = appProperties.baseUrl() + "/api/payment/notify";
-        String returnUrl = appProperties.baseUrl() + "/api/payment/return";
+        // returnUrl 使用前端地址，支付完成后直接跳转到前端支付结果页
+        String returnUrl = appProperties.frontendUrl() + "/payment-result?outTradeNo=" + outTradeNo;
 
         Map<String, Object> payResult = createThirdPartyPayment(
             outTradeNo, "打印订单" + order.getId(), order.getFinalAmount().toString(),
-            notifyUrl, returnUrl, payType
+            notifyUrl, returnUrl, payType, clientIp
         );
 
         if (!Boolean.TRUE.equals(payResult.get("success"))) {
@@ -156,7 +156,6 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setMerchantId((String) payResult.get("trade_no"));
         payment.setTransactionId(outTradeNo);
         payment.setStatus(0);
-        payment.setCreatedAt(LocalDateTime.now());
         paymentMapper.insert(payment);
 
         Map<String, Object> result = new HashMap<>();
@@ -171,7 +170,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private Map<String, Object> createThirdPartyPayment(String outTradeNo, String name, String money,
-                                                         String notifyUrl, String returnUrl, String payType) {
+                                                         String notifyUrl, String returnUrl, String payType, String clientIp) {
         QixiangPayRequest request = new QixiangPayRequest(
             outTradeNo,
             name,
@@ -179,7 +178,7 @@ public class PaymentServiceImpl implements PaymentService {
             notifyUrl,
             returnUrl,
             payType,
-            null,
+            clientIp,
             "jump"
         );
 
@@ -301,12 +300,12 @@ public class PaymentServiceImpl implements PaymentService {
         String tradeStatus = params.get("trade_status");
         String money = params.get("money");
 
-        StringBuilder url = new StringBuilder(appProperties.baseUrl() + "/payment-result.html?");
+        StringBuilder url = new StringBuilder(appProperties.frontendUrl() + "/payment-result?");
         if (outTradeNo != null) {
-            url.append("out_trade_no=").append(outTradeNo).append("&");
+            url.append("outTradeNo=").append(outTradeNo).append("&");
         }
         if (tradeStatus != null) {
-            url.append("trade_status=").append(tradeStatus).append("&");
+            url.append("tradeStatus=").append(tradeStatus).append("&");
         }
         if (money != null) {
             url.append("money=").append(money);

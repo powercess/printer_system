@@ -6,9 +6,11 @@ import com.powercess.printer_system.dto.Result;
 import com.powercess.printer_system.dto.user.*;
 import com.powercess.printer_system.entity.User;
 import com.powercess.printer_system.service.UserService;
+import com.powercess.printer_system.utils.IpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -64,18 +66,20 @@ public class UserController {
 
     @Operation(summary = "钱包充值")
     @PostMapping("/wallet/recharge")
-    public Result<Map<String, Object>> recharge(@Valid @RequestBody WalletRechargeRequest request) {
+    public Result<Map<String, Object>> recharge(@Valid @RequestBody WalletRechargeRequest request, HttpServletRequest httpRequest) {
         Long userId = StpUtil.getLoginIdAsLong();
-        Map<String, Object> result = userService.createWalletRecharge(userId, request);
+        String clientIp = IpUtil.getClientIp(httpRequest);
+        Map<String, Object> result = userService.createWalletRecharge(userId, request, clientIp);
         return Result.success("充值订单创建成功，请前往支付", result);
     }
 
     @Operation(summary = "查询充值状态")
     @GetMapping("/wallet/recharge/status")
     public Result<Map<String, Object>> getRechargeStatus(
-            @Parameter(description = "商户订单号") @RequestParam String outTradeNo) {
+            @Parameter(description = "商户订单号") @RequestParam String outTradeNo,
+            @Parameter(description = "是否强制查询支付平台") @RequestParam(defaultValue = "true") boolean forceQuery) {
         Long userId = StpUtil.getLoginIdAsLong();
-        Map<String, Object> result = userService.getRechargeStatus(userId, outTradeNo);
+        Map<String, Object> result = userService.getRechargeStatus(userId, outTradeNo, forceQuery);
         return Result.success("获取成功", result);
     }
 

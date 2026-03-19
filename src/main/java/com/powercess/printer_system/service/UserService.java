@@ -19,9 +19,9 @@ public interface UserService {
 
     BigDecimal getWalletBalance(Long userId);
 
-    Map<String, Object> createWalletRecharge(Long userId, WalletRechargeRequest request);
+    Map<String, Object> createWalletRecharge(Long userId, WalletRechargeRequest request, String clientIp);
 
-    Map<String, Object> getRechargeStatus(Long userId, String outTradeNo);
+    Map<String, Object> getRechargeStatus(Long userId, String outTradeNo, boolean forceQuery);
 
     PageResult<Map<String, Object>> getWalletTransactions(Long userId, int page, int pageSize, Integer type);
 }

@@ -7,7 +7,7 @@ import java.util.Map;
 
 public interface PaymentService {
 
-    Map<String, Object> createPayment(Long userId, PaymentCreateRequest request);
+    Map<String, Object> createPayment(Long userId, PaymentCreateRequest request, String clientIp);
 
     Payment getPaymentStatus(Long userId, String paymentId);
 

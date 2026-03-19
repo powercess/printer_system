@@ -30,7 +30,4 @@ public class Payment {
     private Integer status;
 
     private LocalDateTime paidAt;
-
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createdAt;
 }

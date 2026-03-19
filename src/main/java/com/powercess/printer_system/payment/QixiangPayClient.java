@@ -11,6 +11,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
@@ -111,25 +112,41 @@ public class QixiangPayClient {
             params.put("sign", sign);
             params.put("sign_type", "MD5");
 
-            String url = paymentProperties.queryUrl() + "?" + params.entrySet().stream()
-                .map(e -> e.getKey() + "=" + e.getValue())
-                .collect(Collectors.joining("&"));
+            // 正确构建URL参数
+            StringBuilder urlBuilder = new StringBuilder(paymentProperties.queryUrl());
+            urlBuilder.append("?");
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                urlBuilder.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8))
+                    .append("=")
+                    .append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+                    .append("&");
+            }
+            String url = urlBuilder.substring(0, urlBuilder.length() - 1); // 移除最后的 &
 
+            log.info("Querying Qixiang payment status: {}", url);
             String response = restTemplate.getForObject(url, String.class);
             log.info("Qixiang query API response: {}", response);
+
+            if (response == null || response.isEmpty()) {
+                log.error("Empty response from Qixiang query API");
+                return new QixiangQueryResponse(false, null, null, outTradeNo, null, "查询返回空响应");
+            }
 
             @SuppressWarnings("unchecked")
             Map<String, Object> result = objectMapper.readValue(response, Map.class);
 
-            if (!"1".equals(result.get("code").toString())) {
-                return new QixiangQueryResponse(false, null, null, outTradeNo, null,
-                    result.get("msg") != null ? result.get("msg").toString() : "查询失败");
+            Object codeObj = result.get("code");
+            if (codeObj == null || !"1".equals(codeObj.toString())) {
+                String msg = result.get("msg") != null ? result.get("msg").toString() : "查询失败";
+                log.warn("Qixiang query failed: code={}, msg={}", codeObj, msg);
+                return new QixiangQueryResponse(false, null, null, outTradeNo, null, msg);
             }
 
             String tradeStatus = (String) result.get("trade_status");
             String tradeNo = (String) result.get("trade_no");
             String money = result.get("money") != null ? result.get("money").toString() : null;
 
+            log.info("Payment status for {}: tradeStatus={}, tradeNo={}", outTradeNo, tradeStatus, tradeNo);
             return new QixiangQueryResponse(true, tradeStatus, tradeNo, outTradeNo, money, null);
 
         } catch (Exception e) {

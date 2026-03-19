@@ -125,7 +125,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public Map<String, Object> createWalletRecharge(Long userId, WalletRechargeRequest request) {
+    public Map<String, Object> createWalletRecharge(Long userId, WalletRechargeRequest request, String clientIp) {
         User user = userMapper.findByIdNotDeleted(userId)
             .orElseThrow(() -> new BusinessException(401, "用户不存在"));
 
@@ -138,15 +138,16 @@ public class UserServiceImpl implements UserService {
         String payType = paymentMethod.equals("wechat") ? "wxpay" : "alipay";
 
         String notifyUrl = appProperties.baseUrl() + "/api/wallet/recharge/notify";
+        String returnUrl = appProperties.frontendUrl() + "/payment-result?outTradeNo=" + outTradeNo;
 
         QixiangPayRequest payRequest = new QixiangPayRequest(
             outTradeNo,
             "钱包充值",
             request.amount(),
             notifyUrl,
-            null,
+            returnUrl,
             payType,
-            null,
+            clientIp,
             "jump"
         );
 
@@ -164,7 +165,6 @@ public class UserServiceImpl implements UserService {
         payment.setMerchantId(response.tradeNo());
         payment.setTransactionId(outTradeNo);
         payment.setStatus(0);
-        payment.setCreatedAt(LocalDateTime.now());
         paymentMapper.insert(payment);
 
         Map<String, Object> result = new HashMap<>();
@@ -177,7 +177,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Map<String, Object> getRechargeStatus(Long userId, String outTradeNo) {
+    @Transactional
+    public Map<String, Object> getRechargeStatus(Long userId, String outTradeNo, boolean forceQuery) {
         LambdaQueryWrapper<Payment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Payment::getTransactionId, outTradeNo);
         wrapper.eq(Payment::getPaymentType, "wallet");
@@ -190,17 +191,58 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(403, "无权查询此充值订单");
         }
 
+        // 如果支付未完成且强制查询，则主动查询支付平台
+        if (payment.getStatus() == 0 && forceQuery) {
+            log.info("主动查询支付平台状态: {}", outTradeNo);
+            var queryResponse = qixiangPayClient.queryPayment(outTradeNo);
+            log.info("支付平台查询结果: {}", queryResponse);
+
+            if (queryResponse.success() && "TRADE_SUCCESS".equals(queryResponse.tradeStatus())) {
+                log.info("支付成功，更新数据库: {}", outTradeNo);
+                // 更新支付状态
+                payment.setStatus(1);
+                payment.setPaidAt(LocalDateTime.now());
+                if (queryResponse.tradeNo() != null) {
+                    payment.setMerchantId(queryResponse.tradeNo());
+                }
+                paymentMapper.updateById(payment);
+
+                // 更新用户余额
+                User user = userMapper.selectById(userId);
+                if (user != null) {
+                    BigDecimal balanceBefore = user.getWalletBalance();
+                    BigDecimal balanceAfter = balanceBefore.add(payment.getAmount());
+                    user.setWalletBalance(balanceAfter);
+                    user.setUpdatedAt(LocalDateTime.now());
+                    userMapper.updateById(user);
+
+                    // 记录交易流水
+                    WalletTransaction transaction = new WalletTransaction();
+                    transaction.setUserId(userId);
+                    transaction.setType(0);
+                    transaction.setAmount(payment.getAmount());
+                    transaction.setBalanceBefore(balanceBefore);
+                    transaction.setBalanceAfter(balanceAfter);
+                    transaction.setRelatedId("recharge_" + outTradeNo);
+                    transaction.setCreatedAt(LocalDateTime.now());
+                    walletTransactionMapper.insert(transaction);
+
+                    log.info("充值成功: userId={}, amount={}, balanceBefore={}, balanceAfter={}",
+                        userId, payment.getAmount(), balanceBefore, balanceAfter);
+                }
+            }
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("outTradeNo", outTradeNo);
         result.put("amount", payment.getAmount());
         result.put("status", payment.getStatus());
         result.put("paidAt", payment.getPaidAt());
 
-        if (payment.getStatus() == 1) {
-            User user = userMapper.selectById(userId);
-            if (user != null) {
-                result.put("balance", user.getWalletBalance());
-            }
+        // 总是返回最新余额
+        User user = userMapper.selectById(userId);
+        if (user != null) {
+            result.put("balance", user.getWalletBalance());
         }
 
         return result;

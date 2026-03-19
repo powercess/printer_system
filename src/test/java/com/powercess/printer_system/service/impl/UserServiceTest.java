@@ -244,12 +244,13 @@ class UserServiceTest {
 
             when(userMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(user));
             when(appProperties.baseUrl()).thenReturn("https://example.com");
+            when(appProperties.frontendUrl()).thenReturn("https://frontend.example.com");
             when(qixiangPayClient.createPayment(any())).thenReturn(
                 QixiangPayResponse.success("TRADE123", "https://pay.url", "https://qr.code")
             );
             when(paymentMapper.insert(any(Payment.class))).thenReturn(1);
 
-            Map<String, Object> result = userService.createWalletRecharge(1L, request);
+            Map<String, Object> result = userService.createWalletRecharge(1L, request, "127.0.0.1");
 
             assertThat(result).containsKeys("outTradeNo", "payUrl", "qrcode", "amount");
             assertThat(result.get("payUrl")).isEqualTo("https://pay.url");
@@ -269,7 +270,7 @@ class UserServiceTest {
 
             when(userMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(user));
 
-            assertThatThrownBy(() -> userService.createWalletRecharge(1L, request))
+            assertThatThrownBy(() -> userService.createWalletRecharge(1L, request, "127.0.0.1"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("不支持的支付方式");
         }
@@ -284,11 +285,12 @@ class UserServiceTest {
 
             when(userMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(user));
             when(appProperties.baseUrl()).thenReturn("https://example.com");
+            when(appProperties.frontendUrl()).thenReturn("https://frontend.example.com");
             when(qixiangPayClient.createPayment(any())).thenReturn(
                 QixiangPayResponse.fail("支付渠道异常")
             );
 
-            assertThatThrownBy(() -> userService.createWalletRecharge(1L, request))
+            assertThatThrownBy(() -> userService.createWalletRecharge(1L, request, "127.0.0.1"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("支付下单失败");
         }

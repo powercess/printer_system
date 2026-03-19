@@ -7,9 +7,11 @@ public record AppProperties(
     UploadProperties upload,
     CupsProperties cups,
     PaymentProperties payment,
-    String baseUrl
+    String baseUrl,
+    String frontendUrl
 ) {
     public AppProperties {
         baseUrl = baseUrl != null ? baseUrl : "https://printer.powercess.com";
+        frontendUrl = frontendUrl != null ? frontendUrl : "http://localhost:3000";
     }
 }
