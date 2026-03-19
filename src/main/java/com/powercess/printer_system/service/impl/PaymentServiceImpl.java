@@ -45,39 +45,52 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public Map<String, Object> createPayment(Long userId, PaymentCreateRequest request, String clientIp) {
+        log.info("Creating payment: userId={}, orderId={}, paymentMethod={}", userId, request.orderId(), request.paymentMethod());
+
         Order order = orderMapper.selectById(request.orderId());
         if (order == null) {
+            log.warn("Order not found: orderId={}", request.orderId());
             throw new BusinessException(404, "订单不存在");
         }
         if (!order.getUserId().equals(userId)) {
+            log.warn("Payment access denied: userId={}, orderId={}, ownerUserId={}", userId, request.orderId(), order.getUserId());
             throw new BusinessException(403, "无权支付此订单");
         }
         if (order.getStatus() != 0) {
+            log.warn("Order status not payable: orderId={}, status={}", request.orderId(), order.getStatus());
             throw new BusinessException(400, "订单状态不允许支付");
         }
 
         String paymentMethod = request.paymentMethod();
         if (!paymentMethod.equals("wechat") && !paymentMethod.equals("alipay") && !paymentMethod.equals("wallet")) {
+            log.warn("Unsupported payment method: {}", paymentMethod);
             throw new BusinessException(400, "不支持的支付方式");
         }
 
         if (paymentMethod.equals("wallet")) {
+            log.info("Processing wallet payment: userId={}, orderId={}", userId, request.orderId());
             return handleWalletPayment(userId, order);
         }
 
+        log.info("Processing third-party payment: userId={}, orderId={}, method={}", userId, request.orderId(), paymentMethod);
         return handleThirdPartyPayment(userId, order, paymentMethod, clientIp);
     }
 
     private Map<String, Object> handleWalletPayment(Long userId, Order order) {
+        log.debug("Handling wallet payment: userId={}, orderId={}", userId, order.getId());
         User user = userMapper.selectById(userId);
         if (user == null) {
+            log.warn("User not found for wallet payment: userId={}", userId);
             throw new BusinessException(401, "用户不存在");
         }
 
         BigDecimal balance = user.getWalletBalance();
         BigDecimal amount = order.getFinalAmount();
 
+        log.debug("Wallet balance check: userId={}, balance={}, amount={}", userId, balance, amount);
+
         if (balance.compareTo(amount) < 0) {
+            log.warn("Insufficient wallet balance: userId={}, balance={}, amount={}", userId, balance, amount);
             throw new BusinessException(400, "钱包余额不足");
         }
 
@@ -87,6 +100,7 @@ public class PaymentServiceImpl implements PaymentService {
         user.setWalletBalance(balanceAfter);
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
+        log.info("Wallet balance updated: userId={}, before={}, after={}", userId, balanceBefore, balanceAfter);
 
         WalletTransaction transaction = new WalletTransaction();
         transaction.setUserId(userId);
@@ -109,11 +123,14 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setStatus(1);
         payment.setPaidAt(LocalDateTime.now());
         paymentMapper.insert(payment);
+        log.info("Payment record created: transactionId={}, amount={}", transactionId, amount);
 
         order.setStatus(1);
         order.setUpdatedAt(LocalDateTime.now());
         orderMapper.updateById(order);
+        log.info("Order status updated: orderId={}, status=1", order.getId());
 
+        log.info("Executing print job: orderId={}, printer={}", order.getId(), order.getPrinterName());
         Map<String, Object> printResult = printerService.executePrint(
             order.getId(), order.getPrinterName(), order.getFileId(),
             order.getColorMode(), order.getDuplex(), order.getPaperSize(), order.getCopies()
@@ -127,10 +144,12 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("printSuccess", printResult.get("success"));
         result.put("printMessage", printResult.get("message"));
 
+        log.info("Wallet payment completed: userId={}, orderId={}, printSuccess={}", userId, order.getId(), printResult.get("success"));
         return result;
     }
 
     private Map<String, Object> handleThirdPartyPayment(Long userId, Order order, String paymentMethod, String clientIp) {
+        log.debug("Handling third-party payment: userId={}, orderId={}, method={}", userId, order.getId(), paymentMethod);
         String outTradeNo = "PRINT" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + order.getId();
         String payType = paymentMethod.equals("wechat") ? "wxpay" : "alipay";
 
@@ -138,12 +157,15 @@ public class PaymentServiceImpl implements PaymentService {
         // returnUrl 使用前端地址，支付完成后直接跳转到前端支付结果页
         String returnUrl = appProperties.frontendUrl() + "/payment-result?outTradeNo=" + outTradeNo;
 
+        log.debug("Third-party payment request: outTradeNo={}, notifyUrl={}", outTradeNo, notifyUrl);
+
         Map<String, Object> payResult = createThirdPartyPayment(
             outTradeNo, "打印订单" + order.getId(), order.getFinalAmount().toString(),
             notifyUrl, returnUrl, payType, clientIp
         );
 
         if (!Boolean.TRUE.equals(payResult.get("success"))) {
+            log.error("Third-party payment creation failed: outTradeNo={}, msg={}", outTradeNo, payResult.get("msg"));
             throw new BusinessException(500, "支付下单失败: " + payResult.get("msg"));
         }
 
@@ -157,6 +179,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setTransactionId(outTradeNo);
         payment.setStatus(0);
         paymentMapper.insert(payment);
+        log.info("Third-party payment created: outTradeNo={}, tradeNo={}", outTradeNo, payResult.get("trade_no"));
 
         Map<String, Object> result = new HashMap<>();
         result.put("paymentId", outTradeNo);
@@ -195,14 +218,17 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public Payment getPaymentStatus(Long userId, String paymentId) {
+        log.debug("Getting payment status: userId={}, paymentId={}", userId, paymentId);
         LambdaQueryWrapper<Payment> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Payment::getTransactionId, paymentId);
 
         Payment payment = paymentMapper.selectOne(wrapper);
         if (payment == null) {
+            log.warn("Payment not found: paymentId={}", paymentId);
             throw new BusinessException(404, "支付记录不存在");
         }
         if (!payment.getUserId().equals(userId)) {
+            log.warn("Payment access denied: userId={}, paymentId={}, ownerUserId={}", userId, paymentId, payment.getUserId());
             throw new BusinessException(403, "无权查询此支付");
         }
 
@@ -258,6 +284,7 @@ public class PaymentServiceImpl implements PaymentService {
         // Handle based on payment type
         if ("wallet".equals(payment.getPaymentType())) {
             // Wallet recharge
+            log.info("Processing wallet recharge callback: outTradeNo={}", outTradeNo);
             User user = userMapper.selectById(payment.getUserId());
             if (user != null) {
                 BigDecimal balanceBefore = user.getWalletBalance();
@@ -275,15 +302,20 @@ public class PaymentServiceImpl implements PaymentService {
                 transaction.setRelatedId("recharge_" + outTradeNo);
                 transaction.setCreatedAt(LocalDateTime.now());
                 walletTransactionMapper.insert(transaction);
+
+                log.info("Wallet recharge completed: userId={}, amount={}, balanceBefore={}, balanceAfter={}",
+                    payment.getUserId(), payment.getAmount(), balanceBefore, balanceAfter);
             }
         } else {
             // Order payment
+            log.info("Processing order payment callback: outTradeNo={}, orderId={}", outTradeNo, payment.getOrderId());
             Order order = orderMapper.selectById(payment.getOrderId());
             if (order != null) {
                 order.setStatus(1);
                 order.setUpdatedAt(LocalDateTime.now());
                 orderMapper.updateById(order);
 
+                log.info("Order payment completed, executing print: orderId={}", order.getId());
                 printerService.executePrint(
                     order.getId(), order.getPrinterName(), order.getFileId(),
                     order.getColorMode(), order.getDuplex(), order.getPaperSize(), order.getCopies()
@@ -291,11 +323,13 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
+        log.info("Payment notify processed successfully: outTradeNo={}", outTradeNo);
         return Map.of("status", "success");
     }
 
     @Override
     public String handleReturn(Map<String, String> params) {
+        log.debug("Handling payment return: params={}", params);
         String outTradeNo = params.get("out_trade_no");
         String tradeStatus = params.get("trade_status");
         String money = params.get("money");
@@ -311,6 +345,7 @@ public class PaymentServiceImpl implements PaymentService {
             url.append("money=").append(money);
         }
 
+        log.debug("Payment return redirect: {}", url);
         return url.toString();
     }
 }

@@ -13,11 +13,13 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @Tag(name = "管理员接口", description = "管理员用户管理、文件管理、订单管理和统计接口")
+@Slf4j
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
@@ -29,7 +31,9 @@ public class AdminController {
     @PostMapping("/user/create")
     public Result<Void> createUser(@Valid @RequestBody AdminUserCreateRequest request) {
         Long adminId = StpUtil.getLoginIdAsLong();
+        log.info("[Admin {}] Creating user: username={}", adminId, request.username());
         adminService.createUser(adminId, request);
+        log.info("[Admin {}] User created: username={}", adminId, request.username());
         return Result.success("用户创建成功");
     }
 
@@ -41,6 +45,7 @@ public class AdminController {
             @Parameter(description = "用户名") @RequestParam(required = false) String username,
             @Parameter(description = "用户组ID") @RequestParam(required = false) Long groupId) {
         Long adminId = StpUtil.getLoginIdAsLong();
+        log.debug("[Admin {}] Getting user list: page={}, pageSize={}, username={}, groupId={}", adminId, page, pageSize, username, groupId);
         PageResult<User> result = adminService.getUsers(adminId, page, pageSize, username, groupId);
         return Result.success("获取成功", result);
     }
@@ -51,7 +56,9 @@ public class AdminController {
             @Parameter(description = "用户ID") @RequestParam Long userId,
             @Valid @RequestBody AdminUserUpdateRequest request) {
         Long adminId = StpUtil.getLoginIdAsLong();
+        log.info("[Admin {}] Updating user: userId={}", adminId, userId);
         adminService.updateUser(adminId, userId, request);
+        log.info("[Admin {}] User updated: userId={}", adminId, userId);
         return Result.success("更新成功");
     }
 
@@ -59,7 +66,9 @@ public class AdminController {
     @DeleteMapping("/user/delete")
     public Result<Void> deleteUser(@Parameter(description = "用户ID") @RequestParam Long userId) {
         Long adminId = StpUtil.getLoginIdAsLong();
+        log.warn("[Admin {}] Deleting user: userId={}", adminId, userId);
         adminService.deleteUser(adminId, userId);
+        log.info("[Admin {}] User deleted: userId={}", adminId, userId);
         return Result.success("删除成功");
     }
 
@@ -70,6 +79,7 @@ public class AdminController {
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int pageSize,
             @Parameter(description = "用户ID") @RequestParam(required = false) Long userId) {
         Long adminId = StpUtil.getLoginIdAsLong();
+        log.debug("[Admin {}] Getting file list: page={}, pageSize={}, userId={}", adminId, page, pageSize, userId);
         PageResult<Map<String, Object>> result = adminService.getFiles(adminId, page, pageSize, userId);
         return Result.success("获取成功", result);
     }
@@ -82,6 +92,7 @@ public class AdminController {
             @Parameter(description = "订单状态") @RequestParam(required = false) Integer status,
             @Parameter(description = "用户ID") @RequestParam(required = false) Long userId) {
         Long adminId = StpUtil.getLoginIdAsLong();
+        log.debug("[Admin {}] Getting order list: page={}, pageSize={}, status={}, userId={}", adminId, page, pageSize, status, userId);
         PageResult<Order> result = adminService.getOrders(adminId, page, pageSize, status, userId);
         return Result.success("获取成功", result);
     }
@@ -90,6 +101,7 @@ public class AdminController {
     @GetMapping("/stats")
     public Result<Map<String, Object>> getStats() {
         Long adminId = StpUtil.getLoginIdAsLong();
+        log.debug("[Admin {}] Getting stats", adminId);
         Map<String, Object> stats = adminService.getStats(adminId);
         return Result.success("获取成功", stats);
     }

@@ -48,10 +48,14 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void register(UserRegisterRequest request) {
+        log.debug("Processing registration: username={}", request.username());
+
         if (userMapper.findByUsername(request.username()).isPresent()) {
+            log.warn("Registration failed - username exists: {}", request.username());
             throw new BusinessException(400, "用户名已存在");
         }
         if (userMapper.findByEmail(request.email()).isPresent()) {
+            log.warn("Registration failed - email exists: {}", request.email());
             throw new BusinessException(400, "邮箱已被注册");
         }
 
@@ -64,25 +68,37 @@ public class UserServiceImpl implements UserService {
         user.setCreatedAt(LocalDateTime.now());
 
         userMapper.insert(user);
+        log.info("User registered: userId={}, username={}", user.getId(), request.username());
     }
 
     @Override
     public String login(UserLoginRequest request) {
+        log.debug("Processing login: username={}", request.username());
         User user = userMapper.findByUsername(request.username())
-            .orElseThrow(() -> new BusinessException(401, "用户不存在"));
+            .orElseThrow(() -> {
+                log.warn("Login failed - user not found: {}", request.username());
+                return new BusinessException(401, "用户不存在");
+            });
 
         if (!PasswordUtil.verify(request.password(), user.getPasswordHash())) {
+            log.warn("Login failed - invalid password: username={}", request.username());
             throw new BusinessException(401, "用户名或密码错误");
         }
 
         StpUtil.login(user.getId());
-        return StpUtil.getTokenValue();
+        String token = StpUtil.getTokenValue();
+        log.info("User logged in: userId={}, username={}", user.getId(), request.username());
+        return token;
     }
 
     @Override
     public User getProfile(Long userId) {
+        log.debug("Getting profile: userId={}", userId);
         User user = userMapper.findByIdNotDeleted(userId)
-            .orElseThrow(() -> new BusinessException(401, "用户不存在"));
+            .orElseThrow(() -> {
+                log.warn("Profile not found: userId={}", userId);
+                return new BusinessException(401, "用户不存在");
+            });
 
         UserGroup group = userGroupMapper.selectById(user.getGroupId());
         if (group != null) {
@@ -95,11 +111,16 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void updateProfile(Long userId, UserProfileUpdateRequest request) {
+        log.debug("Updating profile: userId={}", userId);
         User user = userMapper.findByIdNotDeleted(userId)
-            .orElseThrow(() -> new BusinessException(401, "用户不存在"));
+            .orElseThrow(() -> {
+                log.warn("User not found for profile update: userId={}", userId);
+                return new BusinessException(401, "用户不存在");
+            });
 
         if (request.email() != null && !request.email().equals(user.getEmail())) {
             if (userMapper.findByEmail(request.email()).isPresent()) {
+                log.warn("Profile update failed - email already used: userId={}, email={}", userId, request.email());
                 throw new BusinessException(400, "邮箱已被使用");
             }
             user.setEmail(request.email());
@@ -114,23 +135,35 @@ public class UserServiceImpl implements UserService {
 
         user.setUpdatedAt(LocalDateTime.now());
         userMapper.updateById(user);
+        log.info("Profile updated: userId={}", userId);
     }
 
     @Override
     public BigDecimal getWalletBalance(Long userId) {
+        log.debug("Getting wallet balance: userId={}", userId);
         User user = userMapper.findByIdNotDeleted(userId)
-            .orElseThrow(() -> new BusinessException(401, "用户不存在"));
+            .orElseThrow(() -> {
+                log.warn("User not found for wallet balance: userId={}", userId);
+                return new BusinessException(401, "用户不存在");
+            });
+        log.debug("Wallet balance: userId={}, balance={}", userId, user.getWalletBalance());
         return user.getWalletBalance();
     }
 
     @Override
     @Transactional
     public Map<String, Object> createWalletRecharge(Long userId, WalletRechargeRequest request, String clientIp) {
+        log.info("Creating wallet recharge: userId={}, amount={}, paymentMethod={}", userId, request.amount(), request.paymentMethod());
+
         User user = userMapper.findByIdNotDeleted(userId)
-            .orElseThrow(() -> new BusinessException(401, "用户不存在"));
+            .orElseThrow(() -> {
+                log.warn("User not found for wallet recharge: userId={}", userId);
+                return new BusinessException(401, "用户不存在");
+            });
 
         String paymentMethod = request.paymentMethod();
         if (!paymentMethod.equals("wechat") && !paymentMethod.equals("alipay")) {
+            log.warn("Unsupported payment method: {}", paymentMethod);
             throw new BusinessException(400, "不支持的支付方式");
         }
 
@@ -139,6 +172,8 @@ public class UserServiceImpl implements UserService {
 
         String notifyUrl = appProperties.baseUrl() + "/api/wallet/recharge/notify";
         String returnUrl = appProperties.frontendUrl() + "/payment-result?outTradeNo=" + outTradeNo;
+
+        log.debug("Payment request: outTradeNo={}, notifyUrl={}, returnUrl={}", outTradeNo, notifyUrl, returnUrl);
 
         QixiangPayRequest payRequest = new QixiangPayRequest(
             outTradeNo,
@@ -154,6 +189,7 @@ public class UserServiceImpl implements UserService {
         QixiangPayResponse response = qixiangPayClient.createPayment(payRequest);
 
         if (!response.success()) {
+            log.error("Payment creation failed: outTradeNo={}, msg={}", outTradeNo, response.msg());
             throw new BusinessException(500, "支付下单失败: " + response.msg());
         }
 
@@ -166,6 +202,8 @@ public class UserServiceImpl implements UserService {
         payment.setTransactionId(outTradeNo);
         payment.setStatus(0);
         paymentMapper.insert(payment);
+
+        log.info("Wallet recharge order created: userId={}, outTradeNo={}, amount={}", userId, outTradeNo, request.amount());
 
         Map<String, Object> result = new HashMap<>();
         result.put("outTradeNo", outTradeNo);
@@ -250,6 +288,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public PageResult<Map<String, Object>> getWalletTransactions(Long userId, int page, int pageSize, Integer type) {
+        log.debug("Getting wallet transactions: userId={}, page={}, pageSize={}, type={}", userId, page, pageSize, type);
         LambdaQueryWrapper<WalletTransaction> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(WalletTransaction::getUserId, userId);
         if (type != null) {
@@ -259,6 +298,8 @@ public class UserServiceImpl implements UserService {
 
         IPage<WalletTransaction> pageResult = walletTransactionMapper.selectPage(
             new Page<>(page, Math.min(pageSize, 100)), wrapper);
+
+        log.debug("Found {} wallet transactions for user {}", pageResult.getTotal(), userId);
 
         List<Map<String, Object>> items = pageResult.getRecords().stream()
             .map(t -> {

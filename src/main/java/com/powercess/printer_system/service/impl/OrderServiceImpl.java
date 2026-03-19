@@ -18,6 +18,7 @@ import com.powercess.printer_system.mapper.OrderPromotionMapper;
 import com.powercess.printer_system.mapper.PromotionMapper;
 import com.powercess.printer_system.service.OrderService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
@@ -39,8 +41,13 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public Map<String, Object> createOrder(Long userId, OrderCreateRequest request) {
+        log.debug("Creating order for user: userId={}, fileId={}", userId, request.fileId());
+
         FileEntity file = fileMapper.findByIdNotDeleted(request.fileId())
-            .orElseThrow(() -> new BusinessException(404, "文件不存在"));
+            .orElseThrow(() -> {
+                log.warn("File not found for order: fileId={}", request.fileId());
+                return new BusinessException(404, "文件不存在");
+            });
 
         Map<String, BigDecimal> priceInfo = calculatePrice(file.getPageCount(), request.colorMode(),
             request.duplex(), request.copies(), request.promotionId(), userId);
@@ -60,6 +67,7 @@ public class OrderServiceImpl implements OrderService {
         order.setCreatedAt(LocalDateTime.now());
 
         orderMapper.insert(order);
+        log.info("Order created: orderId={}, userId={}, finalAmount={}", order.getId(), userId, order.getFinalAmount());
 
         if (request.promotionId() != null) {
             OrderPromotion orderPromotion = new OrderPromotion();
@@ -67,6 +75,7 @@ public class OrderServiceImpl implements OrderService {
             orderPromotion.setPromotionId(request.promotionId());
             orderPromotion.setCreatedAt(LocalDateTime.now());
             orderPromotionMapper.insert(orderPromotion);
+            log.debug("Promotion applied to order: orderId={}, promotionId={}", order.getId(), request.promotionId());
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -82,11 +91,14 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Order getOrderDetail(Long userId, Long orderId) {
+        log.debug("Getting order detail: userId={}, orderId={}", userId, orderId);
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
+            log.warn("Order not found: orderId={}", orderId);
             throw new BusinessException(404, "订单不存在");
         }
         if (!order.getUserId().equals(userId)) {
+            log.warn("Order access denied: userId={}, orderId={}, ownerUserId={}", userId, orderId, order.getUserId());
             throw new BusinessException(403, "无权访问此订单");
         }
         return order;
@@ -94,6 +106,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public PageResult<Order> getMyOrders(Long userId, int page, int pageSize, Integer status) {
+        log.debug("Getting user orders: userId={}, page={}, pageSize={}, status={}", userId, page, pageSize, status);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Order::getUserId, userId);
         if (status != null) {
@@ -110,14 +123,18 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void cancelOrder(Long userId, Long orderId) {
+        log.info("Cancelling order: userId={}, orderId={}", userId, orderId);
         Order order = orderMapper.selectById(orderId);
         if (order == null) {
+            log.warn("Order not found for cancellation: orderId={}", orderId);
             throw new BusinessException(404, "订单不存在");
         }
         if (!order.getUserId().equals(userId)) {
+            log.warn("Order cancellation denied: userId={}, orderId={}, ownerUserId={}", userId, orderId, order.getUserId());
             throw new BusinessException(403, "无权取消此订单");
         }
         if (order.getStatus() != 0 && order.getStatus() != 4) {
+            log.warn("Order cannot be cancelled: orderId={}, status={}", orderId, order.getStatus());
             throw new BusinessException(400, "订单状态不允许取消");
         }
 
@@ -126,12 +143,17 @@ public class OrderServiceImpl implements OrderService {
             .set(Order::getStatus, 4)
             .set(Order::getUpdatedAt, LocalDateTime.now());
         orderMapper.update(null, updateWrapper);
+        log.info("Order cancelled successfully: orderId={}", orderId);
     }
 
     @Override
     public Map<String, BigDecimal> estimatePrice(Long userId, PriceEstimateRequest request) {
+        log.debug("Estimating price: userId={}, fileId={}", userId, request.fileId());
         FileEntity file = fileMapper.findByIdNotDeleted(request.fileId())
-            .orElseThrow(() -> new BusinessException(404, "文件不存在"));
+            .orElseThrow(() -> {
+                log.warn("File not found for price estimation: fileId={}", request.fileId());
+                return new BusinessException(404, "文件不存在");
+            });
 
         return calculatePrice(file.getPageCount(), request.colorMode(),
             request.duplex(), request.copies(), request.promotionId(), userId);
@@ -139,6 +161,8 @@ public class OrderServiceImpl implements OrderService {
 
     private Map<String, BigDecimal> calculatePrice(int pageCount, int colorMode, int duplex,
                                                     int copies, Long promotionId, Long userId) {
+        log.trace("Calculating price: pageCount={}, colorMode={}, duplex={}, copies={}, promotionId={}",
+            pageCount, colorMode, duplex, copies, promotionId);
         BigDecimal basePrice = colorMode == 0 ? new BigDecimal("0.10") : new BigDecimal("0.50");
 
         if (duplex == 1) {
@@ -157,7 +181,12 @@ public class OrderServiceImpl implements OrderService {
                 LocalDateTime now = LocalDateTime.now();
                 if (!promotion.getStartTime().isAfter(now) && !promotion.getEndTime().isBefore(now)) {
                     discountAmount = calculateDiscount(promotion, originalAmount, userId);
+                    log.debug("Promotion discount applied: promotionId={}, discountAmount={}", promotionId, discountAmount);
+                } else {
+                    log.debug("Promotion not in valid time range: promotionId={}", promotionId);
                 }
+            } else {
+                log.debug("Promotion not valid: promotionId={}", promotionId);
             }
         }
 
@@ -173,6 +202,8 @@ public class OrderServiceImpl implements OrderService {
         result.put("discountAmount", discountAmount);
         result.put("finalAmount", finalAmount);
 
+        log.debug("Price calculated: originalAmount={}, discountAmount={}, finalAmount={}",
+            originalAmount, discountAmount, finalAmount);
         return result;
     }
 

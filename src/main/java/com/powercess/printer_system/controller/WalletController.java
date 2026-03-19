@@ -12,11 +12,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @Tag(name = "钱包管理", description = "钱包充值、查询等接口")
+@Slf4j
 @RestController
 @RequestMapping("/api/wallet")
 @RequiredArgsConstructor
@@ -30,7 +32,9 @@ public class WalletController {
     public Result<Map<String, Object>> createRecharge(@Valid @RequestBody WalletRechargeRequest request, HttpServletRequest httpRequest) {
         Long userId = StpUtil.getLoginIdAsLong();
         String clientIp = IpUtil.getClientIp(httpRequest);
+        log.info("[{}] Creating wallet recharge: amount={}, paymentMethod={}", userId, request.amount(), request.paymentMethod());
         Map<String, Object> result = userService.createWalletRecharge(userId, request, clientIp);
+        log.info("[{}] Wallet recharge order created: outTradeNo={}", userId, result.get("outTradeNo"));
         return Result.success("充值订单创建成功，请前往支付", result);
     }
 
@@ -40,6 +44,7 @@ public class WalletController {
         @Parameter(description = "商户订单号") @RequestParam String outTradeNo,
         @Parameter(description = "是否强制查询支付平台") @RequestParam(defaultValue = "true") boolean forceQuery) {
         Long userId = StpUtil.getLoginIdAsLong();
+        log.debug("[{}] Getting recharge status: outTradeNo={}, forceQuery={}", userId, outTradeNo, forceQuery);
         Map<String, Object> result = userService.getRechargeStatus(userId, outTradeNo, forceQuery);
         return Result.success("获取成功", result);
     }
@@ -47,14 +52,18 @@ public class WalletController {
     @Operation(summary = "充值支付异步通知")
     @GetMapping("/recharge/notify")
     public String rechargeNotifyGet(@RequestParam Map<String, String> params) {
+        log.info("Wallet recharge notify (GET) received: out_trade_no={}", params.get("out_trade_no"));
         Map<String, Object> result = paymentService.handleNotify(params);
+        log.info("Wallet recharge notify (GET) processed: status={}", result.get("status"));
         return "success".equals(result.get("status")) ? "success" : "fail";
     }
 
     @Operation(summary = "充值支付异步通知")
     @PostMapping("/recharge/notify")
     public String rechargeNotifyPost(@RequestParam Map<String, String> params) {
+        log.info("Wallet recharge notify (POST) received: out_trade_no={}", params.get("out_trade_no"));
         Map<String, Object> result = paymentService.handleNotify(params);
+        log.info("Wallet recharge notify (POST) processed: status={}", result.get("status"));
         return "success".equals(result.get("status")) ? "success" : "fail";
     }
 }

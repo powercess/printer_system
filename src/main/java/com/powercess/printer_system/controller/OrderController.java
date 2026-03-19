@@ -12,12 +12,14 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.Map;
 
 @Tag(name = "订单管理", description = "打印订单创建、查询、取消和价格估算接口")
+@Slf4j
 @RestController
 @RequestMapping("/api/order")
 @RequiredArgsConstructor
@@ -29,7 +31,9 @@ public class OrderController {
     @PostMapping("/create")
     public Result<Map<String, Object>> createOrder(@Valid @RequestBody OrderCreateRequest request) {
         Long userId = StpUtil.getLoginIdAsLong();
+        log.info("[{}] Creating order: fileId={}, printerName={}, copies={}", userId, request.fileId(), request.printerName(), request.copies());
         Map<String, Object> order = orderService.createOrder(userId, request);
+        log.info("[{}] Order created: orderId={}, finalAmount={}", userId, order.get("orderId"), order.get("finalAmount"));
         return Result.success("订单创建成功", order);
     }
 
@@ -37,6 +41,7 @@ public class OrderController {
     @GetMapping("/detail")
     public Result<Order> getOrderDetail(@Parameter(description = "订单ID") @RequestParam Long orderId) {
         Long userId = StpUtil.getLoginIdAsLong();
+        log.debug("[{}] Getting order detail: orderId={}", userId, orderId);
         Order order = orderService.getOrderDetail(userId, orderId);
         return Result.success("获取成功", order);
     }
@@ -48,6 +53,7 @@ public class OrderController {
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int pageSize,
             @Parameter(description = "订单状态") @RequestParam(required = false) Integer status) {
         Long userId = StpUtil.getLoginIdAsLong();
+        log.debug("[{}] Getting order list: page={}, pageSize={}, status={}", userId, page, pageSize, status);
         PageResult<Order> result = orderService.getMyOrders(userId, page, pageSize, status);
         return Result.success("获取成功", result);
     }
@@ -56,7 +62,9 @@ public class OrderController {
     @PostMapping("/cancel")
     public Result<Void> cancelOrder(@Parameter(description = "订单ID") @RequestParam Long orderId) {
         Long userId = StpUtil.getLoginIdAsLong();
+        log.info("[{}] Cancelling order: orderId={}", userId, orderId);
         orderService.cancelOrder(userId, orderId);
+        log.info("[{}] Order cancelled: orderId={}", userId, orderId);
         return Result.success("订单已取消");
     }
 
@@ -64,6 +72,7 @@ public class OrderController {
     @PostMapping("/estimate")
     public Result<Map<String, BigDecimal>> estimatePrice(@Valid @RequestBody PriceEstimateRequest request) {
         Long userId = StpUtil.getLoginIdAsLong();
+        log.debug("[{}] Estimating price: fileId={}, colorMode={}, copies={}", userId, request.fileId(), request.colorMode(), request.copies());
         Map<String, BigDecimal> price = orderService.estimatePrice(userId, request);
         return Result.success("估算成功", price);
     }
