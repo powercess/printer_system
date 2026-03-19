@@ -14,4 +14,7 @@ public interface PaymentService {
     Map<String, Object> handleNotify(Map<String, String> params);
 
     String handleReturn(Map<String, String> params);
+
+    // 主动查询支付状态并处理订单
+    Map<String, Object> queryAndProcessPayment(Long userId, String outTradeNo);
 }

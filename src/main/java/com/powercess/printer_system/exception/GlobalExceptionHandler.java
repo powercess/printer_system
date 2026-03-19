@@ -68,7 +68,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception e) {
-        log.error("Unexpected exception", e);
-        return Result.error("服务器内部错误");
+        log.error("Unexpected exception: {}", e.getMessage(), e);
+        // 返回更详细的错误信息以便调试
+        String message = e.getMessage() != null ? e.getMessage() : "服务器内部错误";
+        return Result.error(500, message);
     }
 }

@@ -6,6 +6,7 @@ import type {
   EstimatePriceRequest,
   OrderListParams,
   CancelOrderResponse,
+  CreateOrderResponse,
 } from "../types/order";
 import type { PriceEstimate, PaginatedResponse } from "../types/api";
 import { useApiRequest } from "./index";
@@ -20,26 +21,24 @@ export const useOrderApi = () => {
     // 创建订单
     create: (data: CreateOrderRequest) => {
       apiLog.requestStart("POST", "/api/order/create", {
-        fileId: data.file_id,
-        printerName: data.printer_name,
+        fileId: data.fileId,
+        printerName: data.printerName,
         copies: data.copies,
-        colorMode: data.color_mode,
+        colorMode: data.colorMode,
         duplex: data.duplex,
-        paperSize: data.paper_size,
-        pageRange: data.page_range || "全部",
+        paperSize: data.paperSize,
       });
-      return post<Order>("/api/order/create", data);
+      return post<CreateOrderResponse>("/api/order/create", data);
     },
 
     // 估算价格
     estimate: (data: EstimatePriceRequest) => {
       apiLog.requestStart("POST", "/api/order/estimate", {
-        fileId: data.file_id,
-        colorMode: data.color_mode,
+        fileId: data.fileId,
+        colorMode: data.colorMode,
         duplex: data.duplex,
-        paperSize: data.paper_size,
+        paperSize: data.paperSize,
         copies: data.copies,
-        pageRange: data.page_range || "全部",
       });
       return post<PriceEstimate>("/api/order/estimate", data);
     },
@@ -51,15 +50,15 @@ export const useOrderApi = () => {
     },
 
     // 获取订单详情
-    getDetail: (orderId: string) => {
+    getDetail: (orderId: number) => {
       apiLog.requestStart("GET", "/api/order/detail", { orderId });
-      return get<Order>("/api/order/detail", { order_id: orderId });
+      return get<Order>("/api/order/detail", { orderId });
     },
 
     // 取消订单
-    cancel: (orderId: string) => {
+    cancel: (orderId: number) => {
       apiLog.requestStart("POST", "/api/order/cancel", { orderId });
-      return post<CancelOrderResponse>("/api/order/cancel", { order_id: orderId });
+      return post<CancelOrderResponse>(`/api/order/cancel?orderId=${orderId}`);
     },
   };
 };

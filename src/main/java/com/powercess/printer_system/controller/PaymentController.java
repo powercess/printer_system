@@ -81,4 +81,14 @@ public class PaymentController {
         log.debug("Redirecting to: {}", redirectUrl);
         return "redirect:" + redirectUrl;
     }
+
+    @Operation(summary = "查询支付状态并处理订单")
+    @GetMapping("/query")
+    public Result<Map<String, Object>> queryPayment(@Parameter(description = "商户订单号") @RequestParam String outTradeNo) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        log.info("[{}] Querying payment status: outTradeNo={}", userId, outTradeNo);
+        Map<String, Object> result = paymentService.queryAndProcessPayment(userId, outTradeNo);
+        log.info("[{}] Payment query result: status={}", userId, result.get("status"));
+        return Result.success("查询成功", result);
+    }
 }

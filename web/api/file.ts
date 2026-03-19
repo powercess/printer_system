@@ -28,15 +28,15 @@ export const useFileApi = () => {
     },
 
     // 获取文件详情
-    getDetail: (fileId: string) => {
+    getDetail: (fileId: number) => {
       apiLog.requestStart("GET", "/api/file/detail", { fileId });
-      return get<FileDetail>("/api/file/detail", { file_id: fileId });
+      return get<FileDetail>("/api/file/detail", { fileId });
     },
 
     // 删除文件
-    delete: (fileId: string) => {
+    delete: (fileId: number) => {
       apiLog.requestStart("DELETE", "/api/file/delete", { fileId });
-      return del<{ success: boolean }>("/api/file/delete", { file_id: fileId });
+      return del<{ success: boolean }>("/api/file/delete", { fileId });
     },
   };
 };

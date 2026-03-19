@@ -16,7 +16,7 @@ export interface Order {
   originalAmount: number;
   discountAmount: number;
   finalAmount: number;
-  status: number; // 0: pending, 1: printing, 2: completed, 3: cancelled, 4: failed
+  status: number; // 0: pending, 1: paid, 2: printing, 3: completed, 4: cancelled
   createdAt: string;
   updatedAt: string;
   username: string | null;
@@ -25,17 +25,18 @@ export interface Order {
 // 状态映射
 export const ORDER_STATUS_MAP: Record<number, OrderStatus> = {
   0: "pending",
-  1: "printing",
-  2: "completed",
-  3: "cancelled",
-  4: "failed",
+  1: "paid",
+  2: "printing",
+  3: "completed",
+  4: "cancelled",
 };
 
 export const STATUS_TO_NUMBER_MAP: Record<OrderStatus, number> = {
   pending: 0,
-  printing: 1,
-  completed: 2,
-  cancelled: 3,
+  paid: 1,
+  printing: 2,
+  completed: 3,
+  cancelled: 4,
   failed: 4,
 };
 
@@ -45,32 +46,42 @@ export const COLOR_MODE_MAP: Record<number, "bw" | "color"> = {
 };
 
 export interface CreateOrderRequest {
-  file_id: string;
-  printer_name: string;
-  copies: number;
-  color_mode: "bw" | "color";
-  duplex: boolean;
-  paper_size: string;
-  page_range?: string;
+  fileId: number;
+  printerName: string;
+  colorMode?: number; // 0: bw, 1: color
+  duplex?: number; // 0: simplex, 1: duplex
+  paperSize?: string;
+  copies?: number;
+  promotionId?: number;
 }
 
 export interface EstimatePriceRequest {
-  file_id: string;
-  color_mode: "bw" | "color";
-  duplex: boolean;
-  paper_size: string;
-  copies: number;
-  page_range?: string;
+  fileId: number;
+  colorMode?: number;
+  duplex?: number;
+  paperSize?: string;
+  copies?: number;
+  promotionId?: number;
 }
 
 export interface OrderListParams {
   page?: number;
   page_size?: number;
-  status?: OrderStatus;
+  status?: number;
 }
 
 export interface CancelOrderResponse {
   success: boolean;
   message: string;
   refund_amount?: number;
+}
+
+// 创建订单响应
+export interface CreateOrderResponse {
+  orderId: number;
+  orderNo: string;
+  originalAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  pageCount: number;
 }

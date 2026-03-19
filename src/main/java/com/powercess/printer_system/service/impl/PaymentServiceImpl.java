@@ -15,6 +15,7 @@ import com.powercess.printer_system.mapper.WalletTransactionMapper;
 import com.powercess.printer_system.payment.QixiangPayClient;
 import com.powercess.printer_system.payment.QixiangPayRequest;
 import com.powercess.printer_system.payment.QixiangPayResponse;
+import com.powercess.printer_system.payment.QixiangQueryResponse;
 import com.powercess.printer_system.service.PaymentService;
 import com.powercess.printer_system.service.PrinterService;
 import lombok.RequiredArgsConstructor;
@@ -347,5 +348,127 @@ public class PaymentServiceImpl implements PaymentService {
 
         log.debug("Payment return redirect: {}", url);
         return url.toString();
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> queryAndProcessPayment(Long userId, String outTradeNo) {
+        log.info("Querying and processing payment: userId={}, outTradeNo={}", userId, outTradeNo);
+
+        // Find payment by transactionId
+        LambdaQueryWrapper<Payment> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Payment::getTransactionId, outTradeNo);
+        Payment payment = paymentMapper.selectOne(wrapper);
+
+        if (payment == null) {
+            log.warn("Payment not found: outTradeNo={}", outTradeNo);
+            throw new BusinessException(404, "支付记录不存在");
+        }
+
+        if (!payment.getUserId().equals(userId)) {
+            log.warn("Payment access denied: userId={}, paymentUserId={}", userId, payment.getUserId());
+            throw new BusinessException(403, "无权查询此支付");
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("paymentId", outTradeNo);
+        result.put("status", payment.getStatus());
+        result.put("amount", payment.getAmount());
+
+        // If already paid, return success
+        if (payment.getStatus() == 1) {
+            result.put("message", "支付已完成");
+            return result;
+        }
+
+        // Query payment status from payment gateway
+        QixiangQueryResponse queryResponse = qixiangPayClient.queryPayment(outTradeNo);
+
+        if (!queryResponse.success()) {
+            log.warn("Failed to query payment: {}", queryResponse.msg());
+            result.put("message", "查询支付状态失败: " + queryResponse.msg());
+            return result;
+        }
+
+        result.put("tradeStatus", queryResponse.tradeStatus());
+
+        if (queryResponse.isPaid()) {
+            log.info("Payment confirmed as paid, processing: outTradeNo={}", outTradeNo);
+
+            // Update payment status
+            payment.setStatus(1);
+            payment.setPaidAt(LocalDateTime.now());
+            if (queryResponse.tradeNo() != null) {
+                payment.setMerchantId(queryResponse.tradeNo());
+            }
+            paymentMapper.updateById(payment);
+
+            // Handle based on payment type
+            if ("wallet".equals(payment.getPaymentType())) {
+                // Wallet recharge
+                User user = userMapper.selectById(userId);
+                if (user != null) {
+                    BigDecimal balanceBefore = user.getWalletBalance();
+                    BigDecimal balanceAfter = balanceBefore.add(payment.getAmount());
+                    user.setWalletBalance(balanceAfter);
+                    user.setUpdatedAt(LocalDateTime.now());
+                    userMapper.updateById(user);
+
+                    WalletTransaction transaction = new WalletTransaction();
+                    transaction.setUserId(userId);
+                    transaction.setType(0);
+                    transaction.setAmount(payment.getAmount());
+                    transaction.setBalanceBefore(balanceBefore);
+                    transaction.setBalanceAfter(balanceAfter);
+                    transaction.setRelatedId("recharge_" + outTradeNo);
+                    transaction.setCreatedAt(LocalDateTime.now());
+                    walletTransactionMapper.insert(transaction);
+
+                    result.put("balance", balanceAfter);
+                    log.info("Wallet recharge completed: userId={}, amount={}, balance={}", userId, payment.getAmount(), balanceAfter);
+                }
+            } else {
+                // Order payment - update order and trigger print
+                Order order = orderMapper.selectById(payment.getOrderId());
+                if (order != null) {
+                    order.setStatus(1);
+                    order.setUpdatedAt(LocalDateTime.now());
+                    orderMapper.updateById(order);
+
+                    // Add order details to result
+                    result.put("orderId", order.getId());
+                    result.put("printerName", order.getPrinterName());
+                    result.put("copies", order.getCopies());
+                    result.put("colorMode", order.getColorMode());
+                    result.put("duplex", order.getDuplex());
+                    result.put("paperSize", order.getPaperSize());
+                    result.put("finalAmount", order.getFinalAmount());
+                    result.put("paymentType", "order");
+
+                    log.info("Order payment confirmed, executing print: orderId={}", order.getId());
+
+                    try {
+                        Map<String, Object> printResult = printerService.executePrint(
+                            order.getId(), order.getPrinterName(), order.getFileId(),
+                            order.getColorMode(), order.getDuplex(), order.getPaperSize(), order.getCopies()
+                        );
+                        result.put("printSuccess", printResult.get("success"));
+                        result.put("printMessage", printResult.get("message"));
+                        result.put("printJobId", printResult.get("jobId"));
+                    } catch (Exception e) {
+                        log.error("Print execution failed for order: {}", order.getId(), e);
+                        result.put("printSuccess", false);
+                        result.put("printMessage", "打印任务提交失败: " + e.getMessage());
+                    }
+                }
+            }
+
+            result.put("status", 1);
+            result.put("message", "支付成功");
+        } else {
+            result.put("message", "支付状态: " + queryResponse.tradeStatus());
+        }
+
+        return result;
     }
 }

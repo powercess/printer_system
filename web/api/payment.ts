@@ -2,8 +2,9 @@
 
 import type {
   CreatePaymentRequest,
+  CreatePaymentResponse,
   Payment,
-  PaymentStatus,
+  QueryPaymentResponse,
 } from "../types/payment";
 import { useApiRequest } from "./index";
 import { createApiLogger } from "../utils/logger";
@@ -20,13 +21,19 @@ export const usePaymentApi = () => {
         orderId: data.orderId,
         paymentMethod: data.paymentMethod,
       });
-      return post<Payment>("/api/payment/create", data);
+      return post<CreatePaymentResponse>("/api/payment/create", data);
     },
 
     // 获取支付状态
     getStatus: (paymentId: string) => {
       apiLog.requestStart("GET", "/api/payment/status", { paymentId });
-      return get<PaymentStatus>("/api/payment/status", { paymentId });
+      return get<Payment>("/api/payment/status", { paymentId });
+    },
+
+    // 查询支付状态并处理订单
+    query: (outTradeNo: string) => {
+      apiLog.requestStart("GET", "/api/payment/query", { outTradeNo });
+      return get<QueryPaymentResponse>("/api/payment/query", { outTradeNo });
     },
   };
 };
