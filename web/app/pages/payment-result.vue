@@ -79,7 +79,7 @@ const checkPaymentStatus = async () => {
     if (result.status === 1) {
       success.value = true;
       amount.value = result.amount;
-      balance.value = result.balance;
+      balance.value = result.balance ?? null;
       toast.success("充值成功");
     } else {
       success.value = false;

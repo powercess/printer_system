@@ -9,12 +9,12 @@
     <!-- Files Table -->
     <UCard>
       <UTable :data="files" :columns="columns">
-        <template #file_size-cell="{ row }">
-          {{ formatFileSize(row.original.file_size) }}
+        <template #fileSize-cell="{ row }">
+          {{ formatFileSize(row.original.fileSize) }}
         </template>
 
-        <template #created_at-cell="{ row }">
-          {{ formatDate(row.original.created_at) }}
+        <template #uploadTime-cell="{ row }">
+          {{ formatDate(row.original.uploadTime) }}
         </template>
 
         <template #actions-cell="{ row }">
@@ -46,7 +46,7 @@
             <UIcon name="i-heroicons-solid-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
             <h3 class="text-lg font-semibold mb-2">确认删除</h3>
             <p class="text-gray-500 mb-6">
-              确定要删除文件 "{{ fileToDelete?.file_name }}" 吗？此操作不可撤销。
+              确定要删除文件 "{{ fileToDelete?.name }}" 吗？此操作不可撤销。
             </p>
             <div class="flex justify-center gap-3">
               <UButton color="neutral" variant="ghost" @click="deleteModalOpen = false">
@@ -87,11 +87,11 @@ const deleting = ref(false);
 
 const columns = [
   { accessorKey: "id", header: "ID" },
-  { accessorKey: "file_name", header: "文件名" },
-  { accessorKey: "user_id", header: "用户ID" },
-  { accessorKey: "file_size", header: "大小" },
-  { accessorKey: "pages", header: "页数" },
-  { accessorKey: "created_at", header: "上传时间" },
+  { accessorKey: "name", header: "文件名" },
+  { accessorKey: "userId", header: "用户ID" },
+  { accessorKey: "fileSize", header: "大小" },
+  { accessorKey: "pageCount", header: "页数" },
+  { accessorKey: "uploadTime", header: "上传时间" },
   {
     id: "actions",
     header: "操作",
@@ -132,7 +132,7 @@ const deleteFile = async () => {
 
   deleting.value = true;
   try {
-    await fileApi.delete(fileToDelete.value.id);
+    await fileApi.delete(String(fileToDelete.value.id));
     toast.success("文件已删除");
     await fetchFiles();
   } catch (error) {

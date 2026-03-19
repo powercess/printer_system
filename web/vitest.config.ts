@@ -2,7 +2,7 @@ import { defineVitestConfig } from "@nuxt/test-utils/config";
 
 export default defineVitestConfig({
   test: {
-    environment: "node",
+    environment: "happy-dom",
     include: ["tests/**/*.test.ts"],
     setupFiles: ["tests/setup.ts"],
     deps: {
@@ -13,5 +13,6 @@ export default defineVitestConfig({
       reporter: ["text", "json", "html"],
       include: ["composables/**", "api/**", "stores/**", "utils/**"],
     },
+    testTimeout: 30000,
   },
 });

@@ -61,7 +61,7 @@ describe('usePaymentApi', () => {
       const result = await api.getStatus('pay_123')
 
       expect(result).toEqual(mockStatus)
-      expect(mockRequest.get).toHaveBeenCalledWith('/api/payment/status', { payment_id: 'pay_123' })
+      expect(mockRequest.get).toHaveBeenCalledWith('/api/payment/status', { paymentId: 'pay_123' })
     })
   })
 })

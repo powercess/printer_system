@@ -22,12 +22,12 @@
           </UBadge>
         </template>
 
-        <template #price-cell="{ row }">
-          ¥{{ row.original.price.toFixed(2) }}
+        <template #finalAmount-cell="{ row }">
+          ¥{{ row.original.finalAmount.toFixed(2) }}
         </template>
 
-        <template #created_at-cell="{ row }">
-          {{ formatDate(row.original.created_at) }}
+        <template #createdAt-cell="{ row }">
+          {{ formatDate(row.original.createdAt) }}
         </template>
       </UTable>
 
@@ -62,38 +62,38 @@ const statusFilter = ref<string>("");
 
 const statusOptions = [
   { value: "", label: "全部状态" },
-  { value: "pending", label: "待处理" },
-  { value: "printing", label: "打印中" },
-  { value: "completed", label: "已完成" },
-  { value: "cancelled", label: "已取消" },
-  { value: "failed", label: "失败" },
+  { value: "0", label: "待处理" },
+  { value: "1", label: "打印中" },
+  { value: "2", label: "已完成" },
+  { value: "3", label: "已取消" },
+  { value: "4", label: "失败" },
 ];
 
-const statusLabels: Record<string, string> = {
-  pending: "待处理",
-  printing: "打印中",
-  completed: "已完成",
-  cancelled: "已取消",
-  failed: "失败",
+const statusLabels: Record<number, string> = {
+  0: "待处理",
+  1: "打印中",
+  2: "已完成",
+  3: "已取消",
+  4: "失败",
 };
 
-const statusColors: Record<string, "warning" | "info" | "success" | "neutral" | "error"> = {
-  pending: "warning",
-  printing: "info",
-  completed: "success",
-  cancelled: "neutral",
-  failed: "error",
+const statusColors: Record<number, "warning" | "info" | "success" | "neutral" | "error"> = {
+  0: "warning",
+  1: "info",
+  2: "success",
+  3: "neutral",
+  4: "error",
 };
 
 const columns = [
   { accessorKey: "id", header: "订单ID" },
-  { accessorKey: "user_id", header: "用户ID" },
-  { accessorKey: "file_name", header: "文件名" },
-  { accessorKey: "printer_name", header: "打印机" },
+  { accessorKey: "userId", header: "用户ID" },
+  { accessorKey: "fileName", header: "文件名" },
+  { accessorKey: "printerName", header: "打印机" },
   { accessorKey: "copies", header: "份数" },
   { accessorKey: "status", header: "状态" },
-  { accessorKey: "price", header: "价格" },
-  { accessorKey: "created_at", header: "创建时间" },
+  { accessorKey: "finalAmount", header: "价格" },
+  { accessorKey: "createdAt", header: "创建时间" },
 ];
 
 const formatDate = (dateStr: string) => {
@@ -105,7 +105,7 @@ const fetchOrders = async () => {
     const result = await adminApi.getOrderList({
       page: currentPage.value,
       page_size: pageSize,
-      status: statusFilter.value as Order["status"] || undefined,
+      status: statusFilter.value ? Number(statusFilter.value) as Order["status"] : undefined,
     });
     orders.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);

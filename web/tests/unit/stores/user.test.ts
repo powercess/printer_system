@@ -35,7 +35,7 @@ describe('useUserStore', () => {
       const { useUserStore } = await import('../../../stores/user')
       const store = useUserStore()
 
-      const mockUser = { id: 1, username: 'test', role: 'user' as const }
+      const mockUser = { id: 1, username: 'test', groupId: 1, groupName: '普通用户' }
       store.user = mockUser
 
       expect(store.getUser).toEqual(mockUser)
@@ -49,14 +49,23 @@ describe('useUserStore', () => {
       expect(store.getBalance).toBe(100.5)
     })
 
-    it('isAdmin 应该在用户角色为 admin 时返回 true', async () => {
+    it('isAdmin 应该在用户 groupId 为 0 或 groupName 为管理员 时返回 true', async () => {
       const { useUserStore } = await import('../../../stores/user')
       const store = useUserStore()
 
       expect(store.isAdmin).toBe(false)
 
-      store.user = { id: 1, username: 'admin', role: 'admin' as const }
+      // groupId 为 0 是管理员
+      store.user = { id: 1, username: 'admin', groupId: 0, groupName: '管理员' } as any
       expect(store.isAdmin).toBe(true)
+
+      // groupName 为 管理员 也是管理员
+      store.user = { id: 2, username: 'admin2', groupId: 1, groupName: '管理员' } as any
+      expect(store.isAdmin).toBe(true)
+
+      // 普通用户
+      store.user = { id: 3, username: 'user', groupId: 1, groupName: '普通用户' } as any
+      expect(store.isAdmin).toBe(false)
     })
 
     it('username 应该返回用户名或空字符串', async () => {
@@ -65,8 +74,8 @@ describe('useUserStore', () => {
 
       expect(store.username).toBe('')
 
-      store.user = { id: 1, username: 'testuser', role: 'user' as const }
-      expect(store.username).toBe('testuser')
+      store.user = { id: 1, username: 'testuser', nickname: 'Test', groupId: 1, groupName: '普通用户' } as any
+      expect(store.username).toBe('Test') // 优先返回 nickname
     })
   })
 
@@ -74,7 +83,7 @@ describe('useUserStore', () => {
     describe('init', () => {
       it('应该从 localStorage 加载用户数据', async () => {
         const storedData = {
-          user: { id: 1, username: 'stored_user', role: 'user' as const },
+          user: { id: 1, username: 'stored_user', groupId: 1, groupName: '普通用户' },
           balance: 50,
         }
         localStorage.setItem('user_data', JSON.stringify(storedData))
@@ -105,13 +114,15 @@ describe('useUserStore', () => {
         const mockUser = {
           id: 1,
           username: 'testuser',
+          nickname: 'Test User',
           email: 'test@example.com',
-          role: 'user' as const,
-          balance: 100,
-          created_at: '2024-01-01',
-          updated_at: '2024-01-01',
+          groupId: 1,
+          groupName: '普通用户',
+          createdAt: '2024-01-01',
+          updatedAt: '2024-01-01',
         }
-        store.setUser(mockUser)
+        // setUser 需要显式传入 balance 参数
+        store.setUser(mockUser, 100)
 
         expect(store.user).toEqual(mockUser)
         expect(store.balance).toBe(100)
@@ -119,6 +130,27 @@ describe('useUserStore', () => {
         const stored = JSON.parse(localStorage.getItem('user_data') || '{}')
         expect(stored.user).toEqual(mockUser)
         expect(stored.balance).toBe(100)
+      })
+
+      it('不传入 balance 时应保持原有余额', async () => {
+        const { useUserStore } = await import('../../../stores/user')
+        const store = useUserStore()
+        store.balance = 50 // 先设置一个余额
+
+        const mockUser = {
+          id: 1,
+          username: 'testuser',
+          nickname: 'Test User',
+          email: 'test@example.com',
+          groupId: 1,
+          groupName: '普通用户',
+          createdAt: '2024-01-01',
+          updatedAt: '2024-01-01',
+        }
+        store.setUser(mockUser)
+
+        expect(store.user).toEqual(mockUser)
+        expect(store.balance).toBe(50) // 余额保持不变
       })
     })
 
@@ -182,20 +214,23 @@ describe('useUserStore', () => {
         const mockUser = {
           id: 1,
           username: 'testuser',
+          nickname: 'Test User',
           email: 'test@example.com',
-          role: 'user' as const,
-          balance: 150,
-          created_at: '2024-01-01',
-          updated_at: '2024-01-01',
+          groupId: 1,
+          groupName: '普通用户',
+          createdAt: '2024-01-01',
+          updatedAt: '2024-01-01',
         }
         mockUserApi.getProfile.mockResolvedValueOnce(mockUser)
+        // fetchProfile 会调用 fetchBalance，需要 mock
+        mockUserApi.getWalletBalance.mockResolvedValueOnce({ balance: 150 })
 
         const { useUserStore } = await import('../../../stores/user')
         const store = useUserStore()
         const result = await store.fetchProfile()
 
         expect(result).toEqual({ success: true, user: mockUser })
-        expect(store.user).toEqual(mockUser)
+        expect(store.user).toEqual({ ...mockUser, balance: 150 })
         expect(store.balance).toBe(150)
       })
 

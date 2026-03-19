@@ -170,7 +170,7 @@ const deleteFile = async () => {
   log.userAction("删除文件", { fileId: fileToDelete.value.id, fileName: fileToDelete.value.name });
   deleting.value = true;
   try {
-    await fileApi.delete(fileToDelete.value.id);
+    await fileApi.delete(String(fileToDelete.value.id));
     log.success("文件删除成功", { fileId: fileToDelete.value.id });
     toast.success("文件已删除");
     await fetchFiles();

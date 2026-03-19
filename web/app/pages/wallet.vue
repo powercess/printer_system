@@ -95,9 +95,9 @@
           <div class="flex items-center gap-3">
             <div
               class="w-10 h-10 rounded-full flex items-center justify-center"
-              :class="getTypeStyle(tx.type).bgClass"
+              :class="getTypeStyle(tx.type)?.bgClass"
             >
-              <UIcon :name="getTypeStyle(tx.type).icon" class="w-5 h-5" />
+              <UIcon :name="getTypeStyle(tx.type)?.icon ?? ''" class="w-5 h-5" />
             </div>
             <div>
               <p class="font-medium">{{ getTypeLabel(tx.type) }}</p>
@@ -106,9 +106,9 @@
           </div>
           <p
             class="text-lg font-bold"
-            :class="getTypeStyle(tx.type).textClass"
+            :class="getTypeStyle(tx.type)?.textClass"
           >
-            {{ getTypeStyle(tx.type).prefix }}¥{{ tx.amount.toFixed(2) }}
+            {{ getTypeStyle(tx.type)?.prefix ?? '' }}¥{{ tx.amount.toFixed(2) }}
           </p>
         </div>
       </div>
@@ -180,7 +180,7 @@ const getTypeStyle = (type: number) => {
     consume: { bgClass: "bg-red-100 text-red-600", textClass: "text-red-600", icon: "i-heroicons-solid-minus", prefix: "-" },
     refund: { bgClass: "bg-blue-100 text-blue-600", textClass: "text-green-600", icon: "i-heroicons-outline-arrow-uturn-left", prefix: "+" },
   };
-  return styles[typeStr] || styles.consume;
+  return styles[typeStr] ?? styles.consume;
 };
 
 const getTypeLabel = (type: number): string => {
@@ -189,7 +189,7 @@ const getTypeLabel = (type: number): string => {
     consume: "消费",
     refund: "退款",
   };
-  return labels[TRANSACTION_TYPE_MAP[type] || "consume"];
+  return labels[TRANSACTION_TYPE_MAP[type] ?? "consume"] ?? "消费";
 };
 
 const formatDate = (dateStr: string) => {
