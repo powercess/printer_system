@@ -7,6 +7,7 @@ public record AppProperties(
     UploadProperties upload,
     CupsProperties cups,
     PaymentProperties payment,
+    StorageProperties storage,
     String baseUrl,
     String frontendUrl
 ) {

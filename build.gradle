@@ -24,6 +24,12 @@ repositories {
     mavenCentral()
 }
 
+dependencyManagement {
+    imports {
+        mavenBom 'software.amazon.awssdk:bom:2.25.0'
+    }
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -32,6 +38,7 @@ dependencies {
     implementation 'cn.dev33:sa-token-spring-boot4-starter:1.45.0'
     implementation 'com.baomidou:mybatis-plus-spring-boot4-starter:3.5.15'
     implementation 'org.cups4j:cups4j:0.7.9'
+    implementation 'software.amazon.awssdk:s3'
 
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'

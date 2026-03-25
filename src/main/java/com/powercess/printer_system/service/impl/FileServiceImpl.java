@@ -3,12 +3,12 @@ package com.powercess.printer_system.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.powercess.printer_system.config.AppProperties;
 import com.powercess.printer_system.dto.PageResult;
 import com.powercess.printer_system.entity.FileEntity;
 import com.powercess.printer_system.exception.BusinessException;
 import com.powercess.printer_system.mapper.FileMapper;
 import com.powercess.printer_system.service.FileService;
+import com.powercess.printer_system.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,9 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -31,35 +28,7 @@ import java.util.UUID;
 public class FileServiceImpl implements FileService {
 
     private final FileMapper fileMapper;
-    private final AppProperties appProperties;
-
-    /**
-     * 初始化上传根目录，确保目录存在且可写
-     */
-    private Path ensureUploadRootDirectory() {
-        String uploadDir = appProperties.upload().dir();
-        Path rootPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-
-        // 如果目录不存在，创建它
-        if (!Files.exists(rootPath)) {
-            try {
-                Files.createDirectories(rootPath);
-                log.info("Created upload root directory: {}", rootPath);
-            } catch (IOException e) {
-                log.error("Failed to create upload root directory: {}", rootPath, e);
-                throw new BusinessException(500, "无法创建上传目录: " + rootPath);
-            }
-        }
-
-        // 检查目录是否可写
-        if (!Files.isWritable(rootPath)) {
-            log.error("Upload directory is not writable: {}", rootPath);
-            throw new BusinessException(500, "上传目录不可写: " + rootPath);
-        }
-
-        log.debug("Upload root directory ready: {}", rootPath);
-        return rootPath;
-    }
+    private final StorageService storageService;
 
     @Override
     @Transactional
@@ -82,48 +51,35 @@ public class FileServiceImpl implements FileService {
 
         log.info("File info: name={}, extension={}, type={}, size={}bytes", originalFilename, fileExtension, fileType, fileSize);
 
-        // 确保上传根目录存在
-        Path rootPath = ensureUploadRootDirectory();
-
-        // 构建按日期分类的子目录
+        // 构建按日期分类的存储路径
         LocalDateTime now = LocalDateTime.now();
         String datePath = now.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-        Path uploadPath = rootPath.resolve(datePath);
-
-        // 创建日期子目录
-        try {
-            Files.createDirectories(uploadPath);
-            log.debug("Created upload subdirectory: {}", uploadPath);
-        } catch (IOException e) {
-            log.error("Failed to create upload subdirectory: {}", uploadPath, e);
-            throw new BusinessException(500, "创建上传目录失败: " + e.getMessage());
-        }
 
         // 生成唯一文件名
         String uniqueFilename = UUID.randomUUID().toString().replace("-", "") + "_" + sanitizeFilename(originalFilename);
-        Path filePath = uploadPath.resolve(uniqueFilename);
+        String relativePath = datePath + "/" + uniqueFilename;
 
-        // 保存文件
+        // 通过 StorageService 上传文件
+        String storedPath;
         try {
-            file.transferTo(filePath);
-            log.info("File saved successfully: {}", filePath);
+            storedPath = storageService.upload(
+                relativePath,
+                file.getInputStream(),
+                file.getSize(),
+                file.getContentType()
+            );
+            log.info("File saved successfully: {} (storage type: {})", storedPath, storageService.getStorageType());
         } catch (IOException e) {
-            log.error("Failed to save file: {}", filePath, e);
-            throw new BusinessException(500, "文件保存失败: " + e.getMessage());
-        } catch (IllegalStateException e) {
-            log.error("File upload state error: {}", filePath, e);
-            throw new BusinessException(500, "文件上传状态错误: " + e.getMessage());
+            log.error("Failed to read uploaded file: {}", originalFilename, e);
+            throw new BusinessException(500, "文件读取失败: " + e.getMessage());
         }
 
         // 计算页数
         int pageCount = 1;
         if ("pdf".equals(fileType)) {
-            pageCount = countPdfPages(filePath.toString());
+            pageCount = countPdfPages(storedPath);
             log.debug("PDF page count: {}", pageCount);
         }
-
-        // 构建相对路径（用于数据库存储）
-        String fileRelativePath = datePath + "/" + uniqueFilename;
 
         // 保存文件信息到数据库
         FileEntity fileEntity = new FileEntity();
@@ -132,19 +88,15 @@ public class FileServiceImpl implements FileService {
         fileEntity.setFileType(fileType);
         fileEntity.setFileSize(fileSize);
         fileEntity.setPageCount(pageCount);
-        fileEntity.setFilePath(fileRelativePath);
+        fileEntity.setFilePath(storedPath);
         fileEntity.setUploadTime(now);
 
         try {
             fileMapper.insert(fileEntity);
         } catch (Exception e) {
             // 数据库保存失败，尝试删除已上传的文件
-            log.error("Failed to save file info to database, cleaning up file: {}", filePath, e);
-            try {
-                Files.deleteIfExists(filePath);
-            } catch (IOException deleteError) {
-                log.warn("Failed to cleanup file after database error: {}", filePath);
-            }
+            log.error("Failed to save file info to database, cleaning up file: {}", storedPath, e);
+            storageService.delete(storedPath);
             throw new BusinessException(500, "文件信息保存失败");
         }
 
@@ -158,7 +110,7 @@ public class FileServiceImpl implements FileService {
         result.put("fileSize", fileSize);
         result.put("pageCount", pageCount);
         result.put("uploadTime", fileEntity.getUploadTime());
-        result.put("filePath", fileRelativePath);
+        result.put("filePath", storedPath);
 
         return result;
     }
@@ -221,9 +173,37 @@ public class FileServiceImpl implements FileService {
             throw new BusinessException(403, "无权删除此文件");
         }
 
+        // 删除存储中的文件
+        storageService.delete(file.getFilePath());
+
+        // 软删除数据库记录
         file.setDeletedAt(LocalDateTime.now());
         fileMapper.updateById(file);
         log.info("File soft deleted: fileId={}", fileId);
+    }
+
+    @Override
+    public String getDownloadUrl(Long userId, Long fileId) {
+        log.debug("Getting download URL: userId={}, fileId={}", userId, fileId);
+        FileEntity file = fileMapper.findByIdNotDeleted(fileId)
+            .orElseThrow(() -> {
+                log.warn("File not found: fileId={}", fileId);
+                return new BusinessException(404, "文件不存在");
+            });
+
+        if (!file.getUserId().equals(userId)) {
+            log.warn("Download denied: userId={}, fileId={}, ownerUserId={}", userId, fileId, file.getUserId());
+            throw new BusinessException(403, "无权下载此文件");
+        }
+
+        // 对象存储返回预签名URL
+        String presignedUrl = storageService.getPresignedUrl(file.getFilePath(), null);
+        if (presignedUrl != null) {
+            return presignedUrl;
+        }
+
+        // 本地存储返回文件路径
+        return file.getFilePath();
     }
 
     private String getFileExtension(String filename) {
@@ -247,6 +227,7 @@ public class FileServiceImpl implements FileService {
     }
 
     private int countPdfPages(String filePath) {
+        // TODO: 实现 PDF 页数计算
         return 1;
     }
 }

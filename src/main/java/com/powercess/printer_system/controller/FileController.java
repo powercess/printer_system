@@ -66,4 +66,17 @@ public class FileController {
         log.info("[{}] File deleted: fileId={}", userId, fileId);
         return Result.success("删除成功");
     }
+
+    @Operation(summary = "获取文件下载链接")
+    @GetMapping("/download-url")
+    public Result<Map<String, String>> getDownloadUrl(@Parameter(description = "文件ID") @RequestParam Long fileId) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        log.debug("[{}] Getting download URL: fileId={}", userId, fileId);
+        String downloadUrl = fileService.getDownloadUrl(userId, fileId);
+        Map<String, String> result = Map.of(
+            "fileId", String.valueOf(fileId),
+            "downloadUrl", downloadUrl
+        );
+        return Result.success("获取成功", result);
+    }
 }

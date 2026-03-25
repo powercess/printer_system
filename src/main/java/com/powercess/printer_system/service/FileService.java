@@ -15,4 +15,12 @@ public interface FileService {
     FileEntity getFileDetail(Long userId, Long fileId);
 
     void deleteFile(Long userId, Long fileId);
+
+    /**
+     * 获取文件下载URL
+     * @param userId 用户ID
+     * @param fileId 文件ID
+     * @return 下载URL（对象存储返回预签名URL，本地存储返回相对路径）
+     */
+    String getDownloadUrl(Long userId, Long fileId);
 }

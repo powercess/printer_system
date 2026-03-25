@@ -9,16 +9,12 @@ import com.powercess.printer_system.mapper.FileMapper;
 import com.powercess.printer_system.mapper.OrderMapper;
 import com.powercess.printer_system.service.CupsClientService;
 import com.powercess.printer_system.service.PrinterService;
+import com.powercess.printer_system.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.cups4j.CupsPrinter;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +29,7 @@ public class PrinterServiceImpl implements PrinterService {
     private final FileMapper fileMapper;
     private final OrderMapper orderMapper;
     private final CupsClientService cupsClientService;
+    private final StorageService storageService;
 
     @Override
     public Map<String, Object> healthCheck() {
@@ -208,15 +205,13 @@ public class PrinterServiceImpl implements PrinterService {
     public Map<String, Object> print(Long userId, String printerName, String filePath, String title, Map<String, String> options) {
         Map<String, Object> result = new HashMap<>();
         try {
-            File file = new File(filePath);
-            if (!file.exists()) {
-                throw new BusinessException(404, "文件不存在: " + filePath);
-            }
+            // 通过 StorageService 获取文件内容
+            byte[] content = storageService.downloadBytes(filePath);
 
             int copies = options.containsKey("copies") ? Integer.parseInt(options.get("copies")) : 1;
             String duplex = options.getOrDefault("sides", "one-sided");
 
-            int jobId = cupsClientService.printFile(printerName, file, title, copies, duplex);
+            int jobId = cupsClientService.printBytes(printerName, content, title, copies, duplex);
 
             result.put("success", true);
             result.put("jobId", jobId);
@@ -242,20 +237,9 @@ public class PrinterServiceImpl implements PrinterService {
             FileEntity file = fileMapper.findByIdNotDeleted(fileId)
                 .orElseThrow(() -> new BusinessException(404, "文件不存在"));
 
-            // 构建文件绝对路径
-            String uploadDir = appProperties.upload().dir();
-            Path filePath = Paths.get(uploadDir).toAbsolutePath().normalize().resolve(file.getFilePath());
-            log.info("File absolute path: {}", filePath);
-
-            if (!Files.exists(filePath)) {
-                log.error("File not found at path: {}", filePath);
-                throw new BusinessException(404, "文件不存在: " + filePath);
-            }
-
-            if (!Files.isReadable(filePath)) {
-                log.error("File not readable: {}", filePath);
-                throw new BusinessException(500, "文件无法读取: " + filePath);
-            }
+            // 通过 StorageService 获取文件内容
+            byte[] content = storageService.downloadBytes(file.getFilePath());
+            log.info("File content retrieved from storage: filePath={}, size={}bytes", file.getFilePath(), content.length);
 
             // 获取打印机
             CupsPrinter printer = cupsClientService.getPrinter(printerName);
@@ -270,8 +254,7 @@ public class PrinterServiceImpl implements PrinterService {
             options.put("media", paperSize != null ? paperSize : "A4");
             options.put("ColorModel", colorMode != null && colorMode == 1 ? "RGB" : "Gray");
 
-            // 读取文件并打印
-            byte[] content = Files.readAllBytes(filePath);
+            // 打印
             String jobName = "Order-" + orderId + "-" + file.getName();
             int jobId = cupsClientService.printBytes(printerName, content, jobName, copies, options.get("sides"));
 
