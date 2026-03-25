@@ -14,7 +14,7 @@
 
       <!-- Login Form -->
       <UCard>
-        <form @submit.prevent="handleLogin" class="space-y-6">
+        <form class="space-y-6" @submit.prevent="handleLogin">
           <UFormField label="用户名" name="username" required>
             <UInput
               v-model="form.username"

@@ -1,5 +1,6 @@
 // E2E 测试工具函数
-import { Page, expect } from '@playwright/test'
+import type { Page} from '@playwright/test';
+import { expect } from '@playwright/test'
 
 // 测试用户配置
 export const testUser = {

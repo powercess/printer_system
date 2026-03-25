@@ -242,9 +242,26 @@ public class PrinterServiceImpl implements PrinterService {
                 throw new BusinessException(500, "文件存储路径无效");
             }
 
+            // 检查文件是否存在于原始存储位置
+            String actualPath = storagePath;
+            if (!storageService.exists(storagePath)) {
+                // 文件不在原始位置，尝试在其他存储中查找
+                log.info("File not found in original storage, searching other storages: {}", storagePath);
+                String foundPath = storageService.findInAllStorages(storagePath);
+
+                if (foundPath != null) {
+                    log.info("File found in alternative storage: {}", foundPath);
+                    actualPath = foundPath;
+                } else {
+                    // 所有存储都找不到文件，标记为丢失
+                    log.error("File not found in any storage: fileId={}, path={}", fileId, storagePath);
+                    throw new BusinessException(404, "文件已丢失，请联系管理员");
+                }
+            }
+
             // 通过 StorageService 获取文件内容
-            byte[] content = storageService.downloadBytes(storagePath);
-            log.info("File content retrieved from storage: filePath={}, size={}bytes", storagePath, content.length);
+            byte[] content = storageService.downloadBytes(actualPath);
+            log.info("File content retrieved from storage: filePath={}, size={}bytes", actualPath, content.length);
 
             // 获取打印机
             CupsPrinter printer = cupsClientService.getPrinter(printerName);

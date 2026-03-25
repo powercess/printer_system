@@ -87,6 +87,83 @@ public class StorageServiceImpl implements StorageService {
         return storageProperties.isS3Enabled() ? "s3" : "local";
     }
 
+    @Override
+    public boolean exists(String path) {
+        if (path == null || path.isBlank()) {
+            return false;
+        }
+        try {
+            StorageProvider provider = resolveProvider(path);
+            String key = stripPrefix(path);
+            return provider.exists(key);
+        } catch (Exception e) {
+            log.warn("Failed to check file existence: {}", path, e);
+            return false;
+        }
+    }
+
+    @Override
+    public String findInAllStorages(String key) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+
+        // 优先检查当前活动的存储
+        String activePrefix = activeProvider.getPrefix();
+        String activePath = activePrefix + key;
+        if (activeProvider.exists(key)) {
+            log.debug("File found in active storage: {}", activePath);
+            return activePath;
+        }
+
+        // 如果当前是 S3，也检查本地存储
+        if (s3StorageProvider != null && localStorageProvider != null) {
+            if (activeProvider == s3StorageProvider) {
+                // 当前是 S3，检查本地
+                String localPath = LOCAL_PREFIX + key;
+                if (localStorageProvider.exists(key)) {
+                    log.info("File found in local storage (fallback): {}", localPath);
+                    return localPath;
+                }
+            } else {
+                // 当前是本地，检查 S3
+                String s3Path = S3_PREFIX + key;
+                if (s3StorageProvider.exists(key)) {
+                    log.info("File found in S3 storage (fallback): {}", s3Path);
+                    return s3Path;
+                }
+            }
+        }
+
+        // 也检查带前缀的原始路径
+        if (key.startsWith(LOCAL_PREFIX)) {
+            String strippedKey = stripPrefix(key);
+            if (localStorageProvider.exists(strippedKey)) {
+                return key;
+            }
+        }
+        if (key.startsWith(S3_PREFIX)) {
+            String strippedKey = stripPrefix(key);
+            if (s3StorageProvider != null && s3StorageProvider.exists(strippedKey)) {
+                return key;
+            }
+        }
+
+        log.debug("File not found in any storage: {}", key);
+        return null;
+    }
+
+    @Override
+    public boolean isStorageAvailable(String storageType) {
+        if ("s3".equalsIgnoreCase(storageType)) {
+            return s3StorageProvider != null;
+        }
+        if ("local".equalsIgnoreCase(storageType)) {
+            return localStorageProvider != null;
+        }
+        return false;
+    }
+
     /**
      * 根据路径前缀解析对应的存储提供者
      */

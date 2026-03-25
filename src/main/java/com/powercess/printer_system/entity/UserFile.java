@@ -47,9 +47,8 @@ public class UserFile {
     private LocalDateTime createdAt;
 
     /**
-     * 软删除时间
+     * 软删除时间（NULL 表示未删除）
      */
-    @TableLogic(value = "NULL", delval = "NOW()")
     private LocalDateTime deletedAt;
 
     // ========== 关联字段（非数据库字段）==========

@@ -52,4 +52,25 @@ public interface StorageService {
      * 获取当前存储类型
      */
     String getStorageType();
+
+    /**
+     * 检查文件是否存在（按路径前缀判断存储类型）
+     * @param path 存储路径（含前缀）
+     * @return 是否存在
+     */
+    boolean exists(String path);
+
+    /**
+     * 在所有可用的存储源中查找文件
+     * @param key 文件键（不含前缀）
+     * @return 找到的完整存储路径，未找到返回 null
+     */
+    String findInAllStorages(String key);
+
+    /**
+     * 检查指定存储类型是否可用
+     * @param storageType 存储类型 (local/s3)
+     * @return 是否可用
+     */
+    boolean isStorageAvailable(String storageType);
 }

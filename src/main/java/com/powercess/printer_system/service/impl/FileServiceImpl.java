@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
@@ -239,32 +238,17 @@ public class FileServiceImpl implements FileService {
 
         Long blobId = userFile.getBlobId();
 
-        // 软删除用户文件记录
-        userFile.setDeletedAt(LocalDateTime.now());
-        userFileMapper.updateById(userFile);
+        // 软删除用户文件记录（Java 端控制时间，确保时区正确）
+        userFileMapper.softDeleteById(fileId, LocalDateTime.now());
 
-        // 减少引用计数
+        // 减少引用计数（不删除 blob 记录，由后台任务清理）
         LambdaUpdateWrapper<FileBlob> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.eq(FileBlob::getId, blobId)
             .gt(FileBlob::getRefCount, 0)
-            .setSql("ref_count = ref_count - 1");
+            .setSql("ref_count = GREATEST(0, ref_count - 1)");
         fileBlobMapper.update(null, updateWrapper);
 
-        // 检查引用计数是否为0，如果是则可以考虑删除物理文件
-        FileBlob blob = fileBlobMapper.selectById(blobId);
-        if (blob != null && blob.getRefCount() <= 0) {
-            log.info("Blob ref count is 0, deleting physical file: blobId={}, path={}", blobId, blob.getStoragePath());
-            // 删除存储中的文件
-            try {
-                storageService.delete(blob.getStoragePath());
-            } catch (Exception e) {
-                log.warn("Failed to delete physical file: {}", blob.getStoragePath(), e);
-            }
-            // 删除 blob 记录
-            fileBlobMapper.deleteById(blobId);
-        }
-
-        log.info("File soft deleted: fileId={}", fileId);
+        log.info("File soft deleted: fileId={}, blobId={}", fileId, blobId);
     }
 
     @Override
@@ -287,19 +271,67 @@ public class FileServiceImpl implements FileService {
             throw new BusinessException(500, "文件存储路径无效");
         }
 
-        // 对象存储返回预签名URL
-        String presignedUrl = storageService.getPresignedUrl(storagePath, null);
-        if (presignedUrl != null) {
-            return presignedUrl;
+        // 检查文件是否存在于原始存储位置
+        if (storageService.exists(storagePath)) {
+            log.debug("File found in original storage: {}", storagePath);
+            return getDownloadUrlFromPath(storagePath);
         }
 
-        // 本地存储返回文件路径
-        return storagePath;
+        // 文件不在原始位置，尝试在其他存储中查找
+        log.info("File not found in original storage, searching other storages: {}", storagePath);
+        String foundPath = storageService.findInAllStorages(storagePath);
+
+        if (foundPath != null) {
+            log.info("File found in alternative storage: {}", foundPath);
+            // 更新 blob 的存储路径
+            updateBlobStoragePath(userFile.getBlobId(), foundPath);
+            return getDownloadUrlFromPath(foundPath);
+        }
+
+        // 所有存储都找不到文件，标记为丢失并提示用户
+        log.error("File not found in any storage: fileId={}, path={}", fileId, storagePath);
+        markFileAsMissing(userFile);
+        throw new BusinessException(404, "文件已丢失，请联系管理员");
     }
 
     @Override
     public UserFile getFileById(Long fileId) {
         return userFileMapper.findByIdNotDeletedWithBlob(fileId).orElse(null);
+    }
+
+    /**
+     * 从存储路径获取下载 URL
+     */
+    private String getDownloadUrlFromPath(String storagePath) {
+        // 对象存储返回预签名URL
+        String presignedUrl = storageService.getPresignedUrl(storagePath, null);
+        if (presignedUrl != null) {
+            return presignedUrl;
+        }
+        // 本地存储返回文件路径
+        return storagePath;
+    }
+
+    /**
+     * 更新 blob 的存储路径
+     */
+    private void updateBlobStoragePath(Long blobId, String newPath) {
+        if (blobId == null || newPath == null) return;
+
+        FileBlob blob = fileBlobMapper.selectById(blobId);
+        if (blob != null && !newPath.equals(blob.getStoragePath())) {
+            blob.setStoragePath(newPath);
+            fileBlobMapper.updateById(blob);
+            log.info("Updated blob storage path: blobId={}, newPath={}", blobId, newPath);
+        }
+    }
+
+    /**
+     * 标记文件为丢失状态（软删除）
+     */
+    private void markFileAsMissing(UserFile userFile) {
+        userFileMapper.softDeleteById(userFile.getId(), LocalDateTime.now());
+        log.warn("File marked as missing and soft deleted: fileId={}", userFile.getId());
     }
 
     private String getFileExtension(String filename) {

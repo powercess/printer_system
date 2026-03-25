@@ -76,7 +76,7 @@
             <h3 class="text-lg font-semibold">添加用户</h3>
           </template>
 
-          <form @submit.prevent="createUser" class="space-y-4">
+          <form class="space-y-4" @submit.prevent="createUser">
             <UFormField label="用户名" required>
               <UInput v-model="createForm.username" placeholder="请输入用户名" />
             </UFormField>

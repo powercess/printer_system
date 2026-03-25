@@ -26,7 +26,7 @@
           <div class="flex items-center gap-3">
             <UIcon :name="getFileIcon(file.fileType)" class="w-10 h-10 text-primary" />
             <div>
-              <p class="font-medium">{{ file.name }}</p>
+              <p class="font-medium">{{ file.displayName }}</p>
               <div class="flex items-center gap-2 text-sm text-gray-500">
                 <span>{{ formatFileSize(file.fileSize) }}</span>
                 <span>·</span>
@@ -75,7 +75,7 @@
             <UIcon name="i-heroicons-solid-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
             <h3 class="text-lg font-semibold mb-2">确认删除</h3>
             <p class="text-gray-500 mb-6">
-              确定要删除文件 "{{ fileToDelete?.name }}" 吗？此操作不可撤销。
+              确定要删除文件 "{{ fileToDelete?.displayName }}" 吗？此操作不可撤销。
             </p>
             <div class="flex justify-center gap-3">
               <UButton color="neutral" variant="ghost" @click="deleteModalOpen = false">
@@ -118,13 +118,14 @@ const deleting = ref(false);
 const fileApi = useFileApi();
 
 const getFileIcon = (type: string) => {
-  if (type.includes("pdf")) return "i-heroicons-outline-document-text";
-  if (type.includes("word") || type.includes("document")) return "i-heroicons-outline-document-text";
-  if (type.includes("image")) return "i-heroicons-outline-photo";
+  if (type?.includes("pdf")) return "i-heroicons-outline-document-text";
+  if (type?.includes("word") || type?.includes("document")) return "i-heroicons-outline-document-text";
+  if (type?.includes("image")) return "i-heroicons-outline-photo";
   return "i-heroicons-outline-document";
 };
 
 const formatFileSize = (bytes: number) => {
+  if (!bytes) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -154,12 +155,12 @@ const fetchFiles = async () => {
 };
 
 const printFile = (file: FileInfo) => {
-  log.userAction("打印文件", { fileId: file.id, fileName: file.name });
+  log.userAction("打印文件", { fileId: file.id, fileName: file.displayName });
   navigateTo(`/?file=${file.id}`);
 };
 
 const confirmDelete = (file: FileInfo) => {
-  log.debug("确认删除文件", { fileId: file.id, fileName: file.name });
+  log.debug("确认删除文件", { fileId: file.id, fileName: file.displayName });
   fileToDelete.value = file;
   deleteModalOpen.value = true;
 };
@@ -167,10 +168,10 @@ const confirmDelete = (file: FileInfo) => {
 const deleteFile = async () => {
   if (!fileToDelete.value) return;
 
-  log.userAction("删除文件", { fileId: fileToDelete.value.id, fileName: fileToDelete.value.name });
+  log.userAction("删除文件", { fileId: fileToDelete.value.id, fileName: fileToDelete.value.displayName });
   deleting.value = true;
   try {
-    await fileApi.delete(String(fileToDelete.value.id));
+    await fileApi.delete(fileToDelete.value.id);
     log.success("文件删除成功", { fileId: fileToDelete.value.id });
     toast.success("文件已删除");
     await fetchFiles();

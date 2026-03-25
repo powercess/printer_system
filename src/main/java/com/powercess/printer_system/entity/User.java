@@ -32,7 +32,6 @@ public class User {
 
     private LocalDateTime updatedAt;
 
-    @TableLogic(value = "NULL", delval = "NOW()")
     private LocalDateTime deletedAt;
 
     @TableField(exist = false)

@@ -52,7 +52,8 @@
       </div>
 
       <!-- 打印状态提示 -->
-      <div v-if="printMessage" class="mb-4 p-3 rounded-lg text-sm"
+      <div
+v-if="printMessage" class="mb-4 p-3 rounded-lg text-sm"
            :class="printSuccess ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400'">
         <div class="flex items-center gap-2">
           <UIcon :name="printSuccess ? 'i-heroicons-solid-check-circle' : 'i-heroicons-solid-exclamation-triangle'" class="w-5 h-5" />
@@ -67,7 +68,7 @@
 
       <!-- 操作按钮 -->
       <div class="flex gap-3 justify-center">
-        <UButton color="neutral" variant="outline" @click="refreshStatus" :loading="refreshing">
+        <UButton color="neutral" variant="outline" :loading="refreshing" @click="refreshStatus">
           <UIcon name="i-heroicons-outline-arrow-path" class="w-4 h-4 mr-1" />
           刷新状态
         </UButton>
@@ -101,7 +102,7 @@
         支付流水号: <span class="font-mono">{{ paymentId }}</span>
       </p>
       <div class="flex gap-4 justify-center">
-        <UButton color="neutral" variant="outline" @click="refreshStatus" :loading="refreshing">
+        <UButton color="neutral" variant="outline" :loading="refreshing" @click="refreshStatus">
           重新查询
         </UButton>
         <UButton color="primary" @click="goHome">

@@ -46,7 +46,7 @@
             <UIcon name="i-heroicons-solid-exclamation-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4" />
             <h3 class="text-lg font-semibold mb-2">确认删除</h3>
             <p class="text-gray-500 mb-6">
-              确定要删除文件 "{{ fileToDelete?.name }}" 吗？此操作不可撤销。
+              确定要删除文件 "{{ fileToDelete?.displayName }}" 吗？此操作不可撤销。
             </p>
             <div class="flex justify-center gap-3">
               <UButton color="neutral" variant="ghost" @click="deleteModalOpen = false">
@@ -87,7 +87,7 @@ const deleting = ref(false);
 
 const columns = [
   { accessorKey: "id", header: "ID" },
-  { accessorKey: "name", header: "文件名" },
+  { accessorKey: "displayName", header: "文件名" },
   { accessorKey: "userId", header: "用户ID" },
   { accessorKey: "fileSize", header: "大小" },
   { accessorKey: "pageCount", header: "页数" },
@@ -100,6 +100,7 @@ const columns = [
 ];
 
 const formatFileSize = (bytes: number) => {
+  if (!bytes) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -132,7 +133,7 @@ const deleteFile = async () => {
 
   deleting.value = true;
   try {
-    await fileApi.delete(String(fileToDelete.value.id));
+    await fileApi.delete(fileToDelete.value.id);
     toast.success("文件已删除");
     await fetchFiles();
   } catch (error) {

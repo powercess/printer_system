@@ -79,7 +79,7 @@
             <h3 class="text-lg font-semibold">发布分享</h3>
           </template>
 
-          <form @submit.prevent="submitShare" class="space-y-4">
+          <form class="space-y-4" @submit.prevent="submitShare">
             <UFormField label="标题" required>
               <UInput v-model="shareForm.title" placeholder="请输入标题" />
             </UFormField>
@@ -142,16 +142,16 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({
-  middleware: ["auth"],
-});
-
 import type { CommunityPost } from "../../types/community";
 import { useUserStore } from "../../stores/user";
 import { useAppToast } from "../../composables/useToast";
 import { useCommunityApi } from "../../api/community";
 import { useFileApi } from "../../api/file";
 import { createPageLogger } from "../../utils/logger";
+
+definePageMeta({
+  middleware: ["auth"],
+});
 
 const log = createPageLogger("community");
 

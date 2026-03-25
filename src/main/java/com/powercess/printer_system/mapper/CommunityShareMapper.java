@@ -5,7 +5,9 @@ import com.powercess.printer_system.entity.CommunityShare;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -23,4 +25,7 @@ public interface CommunityShareMapper extends BaseMapper<CommunityShare> {
         ORDER BY cs.created_at DESC
         """)
     List<CommunityShare> findAllWithDetails(@Param("userId") Long userId);
+
+    @Update("UPDATE community_shares SET deleted_at = #{deletedAt} WHERE id = #{id} AND deleted_at IS NULL")
+    int softDeleteById(@Param("id") Long id, @Param("deletedAt") LocalDateTime deletedAt);
 }

@@ -158,8 +158,7 @@ public class AdminServiceImpl implements AdminService {
                 return new BusinessException(404, "用户不存在");
             });
 
-        user.setDeletedAt(LocalDateTime.now());
-        userMapper.updateById(user);
+        userMapper.softDeleteById(userId, LocalDateTime.now());
         log.info("[Admin {}] User soft deleted: userId={}", adminId, userId);
     }
 
@@ -183,7 +182,7 @@ public class AdminServiceImpl implements AdminService {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", file.getId());
                 map.put("userId", file.getUserId());
-                map.put("name", file.getDisplayName());
+                map.put("displayName", file.getDisplayName());
                 map.put("pageCount", file.getPageCount());
                 map.put("uploadTime", file.getUploadTime());
                 map.put("blobId", file.getBlobId());

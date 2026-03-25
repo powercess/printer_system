@@ -19,7 +19,6 @@ public class CommunityShare {
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 
-    @TableLogic(value = "NULL", delval = "NOW()")
     private LocalDateTime deletedAt;
 
     @TableField(exist = false)

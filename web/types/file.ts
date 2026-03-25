@@ -3,13 +3,16 @@
 export interface FileInfo {
   id: number;
   userId: number;
-  name: string;
-  filePath: string;
-  fileSize: number;
-  fileType: string;
+  blobId: number;
+  displayName: string;
   pageCount: number;
   uploadTime: string;
+  createdAt: string;
   deletedAt: string | null;
+  // 从 blob 关联的字段
+  fileSize: number;
+  fileType: string;
+  storagePath: string;
 }
 
 export interface UploadFileParams {
@@ -25,11 +28,13 @@ export interface FileListParams {
 export interface FileDetail {
   id: number;
   userId: number;
-  name: string;
-  filePath: string;
-  fileSize: number;
-  fileType: string;
+  blobId: number;
+  displayName: string;
   pageCount: number;
   uploadTime: string;
+  createdAt: string;
   deletedAt: string | null;
+  fileSize: number;
+  fileType: string;
+  storagePath: string;
 }

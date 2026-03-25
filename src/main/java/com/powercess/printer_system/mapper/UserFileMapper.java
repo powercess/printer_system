@@ -5,7 +5,9 @@ import com.powercess.printer_system.entity.UserFile;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Mapper
@@ -27,4 +29,10 @@ public interface UserFileMapper extends BaseMapper<UserFile> {
      */
     @Select("SELECT * FROM user_files WHERE id = #{id} AND deleted_at IS NULL")
     Optional<UserFile> findByIdNotDeleted(Long id);
+
+    /**
+     * 软删除用户文件（设置 deleted_at 为当前时间）
+     */
+    @Update("UPDATE user_files SET deleted_at = #{deletedAt} WHERE id = #{id} AND deleted_at IS NULL")
+    int softDeleteById(@Param("id") Long id, @Param("deletedAt") LocalDateTime deletedAt);
 }
