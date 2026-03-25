@@ -30,12 +30,6 @@ public interface StorageService {
     byte[] downloadBytes(String path);
 
     /**
-     * 删除文件
-     * @param path 存储路径（含前缀）
-     */
-    void delete(String path);
-
-    /**
      * 获取预签名下载URL
      * @param path 存储路径（含前缀）
      * @param expiration 过期时间

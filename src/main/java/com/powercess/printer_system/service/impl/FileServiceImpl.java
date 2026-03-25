@@ -72,10 +72,60 @@ public class FileServiceImpl implements FileService {
         FileBlob blob;
         boolean isNewBlob = false;
 
-        if (existingBlob != null) {
-            // 文件内容已存在，复用 blob
-            blob = existingBlob;
-            log.info("File content already exists, reusing blob: blobId={}, hash={}", blob.getId(), contentHash);
+        // 检查现有 blob 的物理文件是否真的存在
+        if (existingBlob != null && existingBlob.getStoragePath() != null) {
+            boolean fileExists = storageService.exists(existingBlob.getStoragePath());
+
+            if (!fileExists) {
+                // 物理文件不存在，尝试在其他存储中查找
+                String foundPath = storageService.findInAllStorages(existingBlob.getStoragePath());
+                if (foundPath != null) {
+                    // 在其他存储中找到了，更新 blob 的存储路径
+                    log.info("File found in alternative storage, updating blob path: blobId={}, oldPath={}, newPath={}",
+                        existingBlob.getId(), existingBlob.getStoragePath(), foundPath);
+                    existingBlob.setStoragePath(foundPath);
+                    fileBlobMapper.updateById(existingBlob);
+                    fileExists = true;
+                }
+            }
+
+            if (fileExists) {
+                // 物理文件存在，复用 blob
+                blob = existingBlob;
+                log.info("File content already exists, reusing blob: blobId={}, hash={}", blob.getId(), contentHash);
+            } else {
+                // 物理文件不存在，需要重新上传
+                log.warn("Blob exists but physical file missing, re-uploading: blobId={}, hash={}", existingBlob.getId(), contentHash);
+                isNewBlob = true;
+
+                // 构建按日期分类的存储路径（使用哈希值作为文件名）
+                LocalDateTime now = LocalDateTime.now();
+                String datePath = now.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+                String hashedFilename = contentHash.substring(0, 16) + "." + fileExtension;
+                String relativePath = datePath + "/" + hashedFilename;
+
+                // 通过 StorageService 上传文件
+                String storedPath;
+                try {
+                    storedPath = storageService.upload(
+                        relativePath,
+                        file.getInputStream(),
+                        file.getSize(),
+                        file.getContentType()
+                    );
+                    log.info("File re-uploaded successfully: {} (storage type: {})", storedPath, storageService.getStorageType());
+                } catch (IOException e) {
+                    log.error("Failed to re-upload file: {}", originalFilename, e);
+                    throw new BusinessException(500, "文件上传失败: " + e.getMessage());
+                }
+
+                // 更新现有 blob 的存储路径
+                existingBlob.setStoragePath(storedPath);
+                existingBlob.setFileSize(fileSize);
+                existingBlob.setFileType(fileType);
+                fileBlobMapper.updateById(existingBlob);
+                blob = existingBlob;
+            }
         } else {
             // 新文件内容，需要存储
             isNewBlob = true;

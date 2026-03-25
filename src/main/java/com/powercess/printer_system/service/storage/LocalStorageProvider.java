@@ -84,17 +84,6 @@ public class LocalStorageProvider implements StorageProvider {
     }
 
     @Override
-    public void delete(String key) {
-        Path filePath = rootPath.resolve(key);
-        try {
-            Files.deleteIfExists(filePath);
-            log.debug("File deleted from local storage: {}", filePath);
-        } catch (IOException e) {
-            log.warn("Failed to delete file from local storage: {}", filePath, e);
-        }
-    }
-
-    @Override
     public String getPresignedUrl(String key, Duration expiration) {
         // 本地存储不支持预签名URL
         return null;

@@ -30,12 +30,6 @@ public interface StorageProvider {
     byte[] downloadBytes(String key);
 
     /**
-     * 删除文件
-     * @param key 存储键（不含前缀）
-     */
-    void delete(String key);
-
-    /**
      * 获取预签名下载URL
      * @param key 存储键（不含前缀）
      * @param expiration 过期时间

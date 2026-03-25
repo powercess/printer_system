@@ -10,7 +10,6 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
@@ -123,21 +122,6 @@ public class S3StorageProvider implements StorageProvider {
         } catch (IOException e) {
             log.error("Failed to read file content from S3: bucket={}, key={}", bucket, key, e);
             throw new BusinessException(500, "文件读取失败: " + e.getMessage());
-        }
-    }
-
-    @Override
-    public void delete(String key) {
-        try {
-            DeleteObjectRequest request = DeleteObjectRequest.builder()
-                .bucket(bucket)
-                .key(key)
-                .build();
-
-            s3Client.deleteObject(request);
-            log.debug("File deleted from S3: bucket={}, key={}", bucket, key);
-        } catch (Exception e) {
-            log.warn("Failed to delete file from S3: bucket={}, key={}", bucket, key, e);
         }
     }
 

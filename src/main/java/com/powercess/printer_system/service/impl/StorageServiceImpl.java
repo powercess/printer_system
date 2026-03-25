@@ -64,13 +64,6 @@ public class StorageServiceImpl implements StorageService {
     }
 
     @Override
-    public void delete(String path) {
-        StorageProvider provider = resolveProvider(path);
-        String key = stripPrefix(path);
-        provider.delete(key);
-    }
-
-    @Override
     public String getPresignedUrl(String path, Duration expiration) {
         StorageProvider provider = resolveProvider(path);
         String key = stripPrefix(path);
