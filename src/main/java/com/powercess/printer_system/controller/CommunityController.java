@@ -6,11 +6,11 @@ import com.powercess.printer_system.dto.PageResult;
 import com.powercess.printer_system.dto.Result;
 import com.powercess.printer_system.dto.community.ShareCreateRequest;
 import com.powercess.printer_system.entity.CommunityShare;
-import com.powercess.printer_system.entity.FileEntity;
+import com.powercess.printer_system.entity.UserFile;
 import com.powercess.printer_system.entity.Like;
 import com.powercess.printer_system.exception.BusinessException;
 import com.powercess.printer_system.mapper.CommunityShareMapper;
-import com.powercess.printer_system.mapper.FileMapper;
+import com.powercess.printer_system.mapper.UserFileMapper;
 import com.powercess.printer_system.mapper.LikeMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,7 +33,7 @@ import java.util.Map;
 public class CommunityController {
 
     private final CommunityShareMapper communityShareMapper;
-    private final FileMapper fileMapper;
+    private final UserFileMapper userFileMapper;
     private final LikeMapper likeMapper;
 
     @Operation(summary = "发布分享")
@@ -42,10 +42,10 @@ public class CommunityController {
         Long userId = StpUtil.getLoginIdAsLong();
         log.info("[{}] Creating share: fileId={}", userId, request.fileId());
 
-        FileEntity file = fileMapper.findByIdNotDeleted(request.fileId())
+        UserFile userFile = userFileMapper.findByIdNotDeletedWithBlob(request.fileId())
             .orElseThrow(() -> new BusinessException(404, "文件不存在"));
 
-        if (!file.getUserId().equals(userId)) {
+        if (!userFile.getUserId().equals(userId)) {
             log.warn("[{}] Share denied - no permission: fileId={}", userId, request.fileId());
             throw new BusinessException(403, "无权分享此文件");
         }

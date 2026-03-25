@@ -7,13 +7,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.powercess.printer_system.dto.PageResult;
 import com.powercess.printer_system.dto.admin.AdminUserCreateRequest;
 import com.powercess.printer_system.dto.admin.AdminUserUpdateRequest;
-import com.powercess.printer_system.entity.FileEntity;
 import com.powercess.printer_system.entity.Order;
 import com.powercess.printer_system.entity.User;
+import com.powercess.printer_system.entity.UserFile;
 import com.powercess.printer_system.entity.UserGroup;
 import com.powercess.printer_system.exception.BusinessException;
-import com.powercess.printer_system.mapper.FileMapper;
 import com.powercess.printer_system.mapper.OrderMapper;
+import com.powercess.printer_system.mapper.UserFileMapper;
 import com.powercess.printer_system.mapper.UserGroupMapper;
 import com.powercess.printer_system.mapper.UserMapper;
 import com.powercess.printer_system.service.AdminService;
@@ -35,7 +35,7 @@ public class AdminServiceImpl implements AdminService {
 
     private final UserMapper userMapper;
     private final UserGroupMapper userGroupMapper;
-    private final FileMapper fileMapper;
+    private final UserFileMapper userFileMapper;
     private final OrderMapper orderMapper;
 
     private void checkAdminPermission(Long adminId) {
@@ -168,13 +168,14 @@ public class AdminServiceImpl implements AdminService {
         checkAdminPermission(adminId);
         log.debug("[Admin {}] Getting files: page={}, pageSize={}, userId={}", adminId, page, pageSize, userId);
 
-        LambdaQueryWrapper<FileEntity> wrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<UserFile> wrapper = new LambdaQueryWrapper<>();
         if (userId != null) {
-            wrapper.eq(FileEntity::getUserId, userId);
+            wrapper.eq(UserFile::getUserId, userId);
         }
-        wrapper.orderByDesc(FileEntity::getUploadTime);
+        wrapper.isNull(UserFile::getDeletedAt);
+        wrapper.orderByDesc(UserFile::getUploadTime);
 
-        IPage<FileEntity> pageResult = fileMapper.selectPage(
+        IPage<UserFile> pageResult = userFileMapper.selectPage(
             new Page<>(page, Math.min(pageSize, 100)), wrapper);
 
         List<Map<String, Object>> items = pageResult.getRecords().stream()
@@ -182,10 +183,10 @@ public class AdminServiceImpl implements AdminService {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", file.getId());
                 map.put("userId", file.getUserId());
-                map.put("name", file.getName());
+                map.put("name", file.getDisplayName());
                 map.put("pageCount", file.getPageCount());
                 map.put("uploadTime", file.getUploadTime());
-                map.put("filePath", file.getFilePath());
+                map.put("blobId", file.getBlobId());
                 return map;
             })
             .toList();

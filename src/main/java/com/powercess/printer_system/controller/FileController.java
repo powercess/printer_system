@@ -3,7 +3,7 @@ package com.powercess.printer_system.controller;
 import cn.dev33.satoken.stp.StpUtil;
 import com.powercess.printer_system.dto.PageResult;
 import com.powercess.printer_system.dto.Result;
-import com.powercess.printer_system.entity.FileEntity;
+import com.powercess.printer_system.entity.UserFile;
 import com.powercess.printer_system.service.FileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -39,21 +39,21 @@ public class FileController {
 
     @Operation(summary = "获取我的文件列表")
     @GetMapping("/list")
-    public Result<PageResult<FileEntity>> getMyFiles(
+    public Result<PageResult<UserFile>> getMyFiles(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int pageSize) {
         Long userId = StpUtil.getLoginIdAsLong();
         log.debug("[{}] Getting file list: page={}, pageSize={}", userId, page, pageSize);
-        PageResult<FileEntity> result = fileService.getMyFiles(userId, page, pageSize);
+        PageResult<UserFile> result = fileService.getMyFiles(userId, page, pageSize);
         return Result.success("获取成功", result);
     }
 
     @Operation(summary = "获取文件详情")
     @GetMapping("/detail")
-    public Result<FileEntity> getFileDetail(@Parameter(description = "文件ID") @RequestParam Long fileId) {
+    public Result<UserFile> getFileDetail(@Parameter(description = "文件ID") @RequestParam Long fileId) {
         Long userId = StpUtil.getLoginIdAsLong();
         log.debug("[{}] Getting file detail: fileId={}", userId, fileId);
-        FileEntity file = fileService.getFileDetail(userId, fileId);
+        UserFile file = fileService.getFileDetail(userId, fileId);
         return Result.success("获取成功", file);
     }
 

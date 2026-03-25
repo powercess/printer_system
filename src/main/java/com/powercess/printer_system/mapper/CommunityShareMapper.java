@@ -12,12 +12,13 @@ import java.util.List;
 public interface CommunityShareMapper extends BaseMapper<CommunityShare> {
 
     @Select("""
-        SELECT cs.*, u.username, u.nickname, f.name as file_name, f.file_path,
+        SELECT cs.*, u.username, u.nickname, uf.display_name as file_name, fb.storage_path as file_path,
                (SELECT COUNT(*) FROM likes WHERE share_id = cs.id) as like_count,
                (SELECT COUNT(*) FROM likes WHERE share_id = cs.id AND user_id = #{userId}) > 0 as is_liked
         FROM community_shares cs
         LEFT JOIN users u ON cs.user_id = u.id
-        LEFT JOIN files f ON cs.file_id = f.id
+        LEFT JOIN user_files uf ON cs.file_id = uf.id
+        LEFT JOIN file_blobs fb ON uf.blob_id = fb.id
         WHERE cs.deleted_at IS NULL
         ORDER BY cs.created_at DESC
         """)

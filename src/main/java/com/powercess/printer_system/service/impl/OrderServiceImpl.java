@@ -7,15 +7,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.powercess.printer_system.dto.PageResult;
 import com.powercess.printer_system.dto.order.OrderCreateRequest;
 import com.powercess.printer_system.dto.order.PriceEstimateRequest;
-import com.powercess.printer_system.entity.FileEntity;
 import com.powercess.printer_system.entity.Order;
 import com.powercess.printer_system.entity.OrderPromotion;
 import com.powercess.printer_system.entity.Promotion;
+import com.powercess.printer_system.entity.UserFile;
 import com.powercess.printer_system.exception.BusinessException;
-import com.powercess.printer_system.mapper.FileMapper;
 import com.powercess.printer_system.mapper.OrderMapper;
 import com.powercess.printer_system.mapper.OrderPromotionMapper;
 import com.powercess.printer_system.mapper.PromotionMapper;
+import com.powercess.printer_system.mapper.UserFileMapper;
 import com.powercess.printer_system.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +34,7 @@ import java.util.Map;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderMapper orderMapper;
-    private final FileMapper fileMapper;
+    private final UserFileMapper userFileMapper;
     private final PromotionMapper promotionMapper;
     private final OrderPromotionMapper orderPromotionMapper;
 
@@ -43,7 +43,7 @@ public class OrderServiceImpl implements OrderService {
     public Map<String, Object> createOrder(Long userId, OrderCreateRequest request) {
         log.debug("Creating order for user: userId={}, fileId={}", userId, request.fileId());
 
-        FileEntity file = fileMapper.findByIdNotDeleted(request.fileId())
+        UserFile file = userFileMapper.findByIdNotDeletedWithBlob(request.fileId())
             .orElseThrow(() -> {
                 log.warn("File not found for order: fileId={}", request.fileId());
                 return new BusinessException(404, "文件不存在");
@@ -149,7 +149,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public Map<String, BigDecimal> estimatePrice(Long userId, PriceEstimateRequest request) {
         log.debug("Estimating price: userId={}, fileId={}", userId, request.fileId());
-        FileEntity file = fileMapper.findByIdNotDeleted(request.fileId())
+        UserFile file = userFileMapper.findByIdNotDeletedWithBlob(request.fileId())
             .orElseThrow(() -> {
                 log.warn("File not found for price estimation: fileId={}", request.fileId());
                 return new BusinessException(404, "文件不存在");

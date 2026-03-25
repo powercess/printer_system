@@ -2,11 +2,11 @@ package com.powercess.printer_system.service.impl;
 
 import com.powercess.printer_system.config.AppProperties;
 import com.powercess.printer_system.cups.CupsOperations;
-import com.powercess.printer_system.entity.FileEntity;
 import com.powercess.printer_system.entity.Order;
+import com.powercess.printer_system.entity.UserFile;
 import com.powercess.printer_system.exception.BusinessException;
-import com.powercess.printer_system.mapper.FileMapper;
 import com.powercess.printer_system.mapper.OrderMapper;
+import com.powercess.printer_system.mapper.UserFileMapper;
 import com.powercess.printer_system.service.CupsClientService;
 import com.powercess.printer_system.service.PrinterService;
 import com.powercess.printer_system.service.StorageService;
@@ -26,7 +26,7 @@ import java.util.Map;
 public class PrinterServiceImpl implements PrinterService {
 
     private final AppProperties appProperties;
-    private final FileMapper fileMapper;
+    private final UserFileMapper userFileMapper;
     private final OrderMapper orderMapper;
     private final CupsClientService cupsClientService;
     private final StorageService storageService;
@@ -234,12 +234,17 @@ public class PrinterServiceImpl implements PrinterService {
 
         try {
             // 获取文件信息
-            FileEntity file = fileMapper.findByIdNotDeleted(fileId)
+            UserFile userFile = userFileMapper.findByIdNotDeletedWithBlob(fileId)
                 .orElseThrow(() -> new BusinessException(404, "文件不存在"));
 
+            String storagePath = userFile.getStoragePath();
+            if (storagePath == null) {
+                throw new BusinessException(500, "文件存储路径无效");
+            }
+
             // 通过 StorageService 获取文件内容
-            byte[] content = storageService.downloadBytes(file.getFilePath());
-            log.info("File content retrieved from storage: filePath={}, size={}bytes", file.getFilePath(), content.length);
+            byte[] content = storageService.downloadBytes(storagePath);
+            log.info("File content retrieved from storage: filePath={}, size={}bytes", storagePath, content.length);
 
             // 获取打印机
             CupsPrinter printer = cupsClientService.getPrinter(printerName);
@@ -255,7 +260,7 @@ public class PrinterServiceImpl implements PrinterService {
             options.put("ColorModel", colorMode != null && colorMode == 1 ? "RGB" : "Gray");
 
             // 打印
-            String jobName = "Order-" + orderId + "-" + file.getName();
+            String jobName = "Order-" + orderId + "-" + userFile.getDisplayName();
             int jobId = cupsClientService.printBytes(printerName, content, jobName, copies, options.get("sides"));
 
             // 更新订单状态

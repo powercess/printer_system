@@ -5,12 +5,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.powercess.printer_system.dto.PageResult;
 import com.powercess.printer_system.dto.order.OrderCreateRequest;
 import com.powercess.printer_system.dto.order.PriceEstimateRequest;
-import com.powercess.printer_system.entity.FileEntity;
+import com.powercess.printer_system.entity.UserFile;
 import com.powercess.printer_system.entity.Order;
 import com.powercess.printer_system.entity.OrderPromotion;
 import com.powercess.printer_system.entity.Promotion;
 import com.powercess.printer_system.exception.BusinessException;
-import com.powercess.printer_system.mapper.FileMapper;
+import com.powercess.printer_system.mapper.UserFileMapper;
 import com.powercess.printer_system.mapper.OrderMapper;
 import com.powercess.printer_system.mapper.OrderPromotionMapper;
 import com.powercess.printer_system.mapper.PromotionMapper;
@@ -37,7 +37,7 @@ class OrderServiceTest {
     private OrderMapper orderMapper;
 
     @Mock
-    private FileMapper fileMapper;
+    private UserFileMapper userFileMapper;
 
     @Mock
     private PromotionMapper promotionMapper;
@@ -48,6 +48,14 @@ class OrderServiceTest {
     @InjectMocks
     private OrderServiceImpl orderService;
 
+    private UserFile createTestFile(Long id, int pageCount) {
+        UserFile file = new UserFile();
+        file.setId(id);
+        file.setPageCount(pageCount);
+        file.setStoragePath("test/path.pdf");
+        return file;
+    }
+
     @Nested
     @DisplayName("创建订单测试")
     class CreateOrderTests {
@@ -55,13 +63,11 @@ class OrderServiceTest {
         @Test
         @DisplayName("应该成功创建订单 - 黑白单面")
         void shouldCreateOrder_BlackWhiteSimplex() {
-            FileEntity file = new FileEntity();
-            file.setId(1L);
-            file.setPageCount(10);
+            UserFile file = createTestFile(1L, 10);
 
             OrderCreateRequest request = new OrderCreateRequest(1L, "printer1", 0, 0, "A4", 1, null);
 
-            when(fileMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(file));
+            when(userFileMapper.findByIdNotDeletedWithBlob(1L)).thenReturn(Optional.of(file));
             when(orderMapper.insert(any(Order.class))).thenAnswer(invocation -> {
                 Order order = invocation.getArgument(0);
                 order.setId(1L);
@@ -81,14 +87,12 @@ class OrderServiceTest {
         @Test
         @DisplayName("应该成功创建订单 - 彩色双面")
         void shouldCreateOrder_ColorDuplex() {
-            FileEntity file = new FileEntity();
-            file.setId(1L);
-            file.setPageCount(10);
+            UserFile file = createTestFile(1L, 10);
 
             // colorMode=1 (彩色), duplex=1 (双面), copies=2
             OrderCreateRequest request = new OrderCreateRequest(1L, "printer1", 1, 1, "A4", 2, null);
 
-            when(fileMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(file));
+            when(userFileMapper.findByIdNotDeletedWithBlob(1L)).thenReturn(Optional.of(file));
             when(orderMapper.insert(any(Order.class))).thenAnswer(invocation -> {
                 Order order = invocation.getArgument(0);
                 order.setId(1L);
@@ -107,7 +111,7 @@ class OrderServiceTest {
         void shouldThrowExceptionWhenFileNotFound() {
             OrderCreateRequest request = new OrderCreateRequest(999L, "printer1", 0, 0, "A4", 1, null);
 
-            when(fileMapper.findByIdNotDeleted(999L)).thenReturn(Optional.empty());
+            when(userFileMapper.findByIdNotDeletedWithBlob(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> orderService.createOrder(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -118,9 +122,7 @@ class OrderServiceTest {
         @Test
         @DisplayName("使用有效优惠券应该计算折扣")
         void shouldCalculateDiscountWithValidPromotion() {
-            FileEntity file = new FileEntity();
-            file.setId(1L);
-            file.setPageCount(10);
+            UserFile file = createTestFile(1L, 10);
 
             Promotion promotion = new Promotion();
             promotion.setId(1L);
@@ -132,7 +134,7 @@ class OrderServiceTest {
 
             OrderCreateRequest request = new OrderCreateRequest(1L, "printer1", 0, 0, "A4", 1, 1L);
 
-            when(fileMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(file));
+            when(userFileMapper.findByIdNotDeletedWithBlob(1L)).thenReturn(Optional.of(file));
             lenient().when(promotionMapper.selectById(1L)).thenReturn(promotion);
             lenient().when(orderMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
             when(orderMapper.insert(any(Order.class))).thenAnswer(invocation -> {
@@ -251,12 +253,11 @@ class OrderServiceTest {
         @Test
         @DisplayName("应该正确估算价格")
         void shouldEstimatePrice() {
-            FileEntity file = new FileEntity();
-            file.setPageCount(20);
+            UserFile file = createTestFile(1L, 20);
 
             PriceEstimateRequest request = new PriceEstimateRequest(1L, 0, 0, "A4", 1, null);
 
-            when(fileMapper.findByIdNotDeleted(1L)).thenReturn(Optional.of(file));
+            when(userFileMapper.findByIdNotDeletedWithBlob(1L)).thenReturn(Optional.of(file));
 
             Map<String, BigDecimal> result = orderService.estimatePrice(1L, request);
 
@@ -271,7 +272,7 @@ class OrderServiceTest {
         void shouldThrowExceptionWhenFileNotFoundForEstimate() {
             PriceEstimateRequest request = new PriceEstimateRequest(999L, 0, 0, "A4", 1, null);
 
-            when(fileMapper.findByIdNotDeleted(999L)).thenReturn(Optional.empty());
+            when(userFileMapper.findByIdNotDeletedWithBlob(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> orderService.estimatePrice(1L, request))
                 .isInstanceOf(BusinessException.class)
