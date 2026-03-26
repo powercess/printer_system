@@ -44,6 +44,15 @@ public interface StorageProvider {
     boolean exists(String key);
 
     /**
+     * 删除文件
+     * @param key 存储键（不含前缀）
+     * @return 是否删除成功
+     */
+    default boolean delete(String key) {
+        throw new UnsupportedOperationException("Delete operation not supported");
+    }
+
+    /**
      * 获取存储类型前缀
      */
     String getPrefix();

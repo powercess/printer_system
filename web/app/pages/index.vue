@@ -107,11 +107,20 @@
                 </div>
               </div>
             </div>
-            <UIcon
-              v-if="selectedExistingFile?.id === file.id"
-              name="i-heroicons-solid-check-circle"
-              class="w-5 h-5 text-primary"
-            />
+            <div class="flex items-center gap-2">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                icon="i-heroicons-outline-eye"
+                @click.stop="previewExistingFile(file)"
+              />
+              <UIcon
+                v-if="selectedExistingFile?.id === file.id"
+                name="i-heroicons-solid-check-circle"
+                class="w-5 h-5 text-primary"
+              />
+            </div>
           </div>
         </div>
 
@@ -146,14 +155,14 @@
             ref="fileInput"
             type="file"
             class="hidden"
-            accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.odt,.ods,.odp,.rtf,.html,.htm,.png,.jpg,.jpeg"
             @change="handleFileSelect"
           >
           <UButton color="primary" variant="soft" @click="fileInput?.click()">
             选择文件
           </UButton>
           <p class="text-sm text-gray-500 mt-2">
-            支持 PDF, Word, TXT, PNG, JPG 格式
+            支持 PDF, Word, Excel, PPT, TXT, ODT 等格式
           </p>
         </div>
 
@@ -169,11 +178,18 @@
             </div>
             <div class="flex items-center gap-2">
               <UButton
+                color="neutral"
+                variant="soft"
+                @click="previewNewFile"
+              >
+                预览
+              </UButton>
+              <UButton
                 color="primary"
                 :loading="uploading"
                 @click="uploadAndSelect"
               >
-                上传文件
+                直接上传
               </UButton>
               <UButton color="neutral" variant="ghost" icon="i-heroicons-solid-x-mark" @click="clearNewFile" />
             </div>
@@ -346,6 +362,13 @@
         </UCard>
       </template>
     </UModal>
+
+    <!-- PDF Preview Modal -->
+    <PdfPreviewModal
+      v-model:open="showPreviewModal"
+      :file="previewingFile"
+      @confirmed="handlePreviewConfirmed"
+    />
   </div>
 </template>
 
@@ -358,6 +381,7 @@ import { usePrinterApi } from "../../api/printer";
 import { usePaymentApi } from "../../api/payment";
 import { createPageLogger } from "../../utils/logger";
 import LoadingSpinner from "../components/common/LoadingSpinner.vue";
+import PdfPreviewModal from "../components/common/PdfPreviewModal.vue";
 import type { CupsPrinter } from "../../types/printer";
 import type { PriceEstimate } from "../../types/api";
 import type { CreateOrderResponse } from "../../types/order";
@@ -401,6 +425,10 @@ const estimatedPrice = ref<PriceEstimate | null>(null);
 const showPaymentModal = ref(false);
 const selectedPaymentMethod = ref<PaymentMethod>("wallet");
 const orderInfo = ref<CreateOrderResponse | null>(null);
+
+// Preview modal state
+const showPreviewModal = ref(false);
+const previewingFile = ref<File | null>(null);
 
 const printOptions = reactive({
   printer: "",
@@ -527,14 +555,22 @@ const selectNewFile = (file: File) => {
     "application/pdf",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "text/plain",
     "image/png",
     "image/jpeg",
   ];
 
-  if (!allowedTypes.includes(file.type)) {
-    log.warn("文件类型不支持", { fileType: file.type });
-    toast.error("不支持的文件格式");
+  // Also check file extension for better compatibility
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'png', 'jpg', 'jpeg', 'odt', 'ods', 'odp', 'rtf', 'html', 'htm'];
+
+  if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(ext)) {
+    log.warn("文件类型不支持", { fileType: file.type, ext });
+    toast.error("不支持的文件格式，请上传 PDF 或 Office 文档");
     return;
   }
 
@@ -542,6 +578,47 @@ const selectNewFile = (file: File) => {
   selectedNewFile.value = file;
   selectedExistingFile.value = null;
   estimatedPrice.value = null;
+};
+
+// Preview new file before upload
+const previewNewFile = () => {
+  if (!selectedNewFile.value) return;
+  log.userAction("预览新文件", { fileName: selectedNewFile.value.name });
+  previewingFile.value = selectedNewFile.value;
+  showPreviewModal.value = true;
+};
+
+// Preview existing file (need to fetch from server)
+const previewExistingFile = async (file: FileInfo) => {
+  log.userAction("预览已存在文件", { fileId: file.id, fileName: file.displayName });
+
+  try {
+    const result = await fileApi.getDownloadUrl(file.id);
+    if (result.downloadUrl) {
+      window.open(result.downloadUrl, '_blank');
+    }
+  } catch (e) {
+    log.error("获取预览链接失败", e);
+    toast.error("预览失败");
+  }
+};
+
+// Handle preview confirmed (file saved after preview)
+const handlePreviewConfirmed = async (fileId: number, fileName: string) => {
+  log.success("预览确认完成", { fileId, fileName });
+
+  // Refresh the file list
+  await fetchExistingFiles();
+
+  // Select the newly saved file
+  const newFile = existingFiles.value.find(f => f.id === fileId);
+  if (newFile) {
+    selectedExistingFile.value = newFile;
+    fileSource.value = 'existing';
+    selectedNewFile.value = null;
+  }
+
+  toast.success("文件已保存");
 };
 
 // Upload new file and select it

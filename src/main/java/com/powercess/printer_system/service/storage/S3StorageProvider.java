@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
@@ -158,6 +159,23 @@ public class S3StorageProvider implements StorageProvider {
             s3Client.headObject(request);
             return true;
         } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean delete(String key) {
+        try {
+            DeleteObjectRequest request = DeleteObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .build();
+
+            s3Client.deleteObject(request);
+            log.debug("File deleted from S3: bucket={}, key={}", bucket, key);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to delete file from S3: bucket={}, key={}", bucket, key, e);
             return false;
         }
     }

@@ -3,6 +3,9 @@ spring:
     name: printer_system
   config:
     import: optional:file:.env[.properties]
+  autoconfigure:
+    exclude:
+      - dev.gotenberg.GotenbergAutoConfiguration
 
   # DataSource Configuration
   datasource:
@@ -99,6 +102,11 @@ app:
     query-url: ${PAY_QUERY_URL:https://api.payqixiang.cn/api.php}
   base-url: ${BASE_URL:https://printer.powercess.com}
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+# Gotenberg Configuration
+gotenberg:
+  url: ${GOTENBERG_URL:http://localhost:3000}
+  timeout: ${GOTENBERG_TIMEOUT:60000}
 
 # SpringDoc OpenAPI Configuration
 springdoc:
