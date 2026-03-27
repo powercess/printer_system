@@ -1,0 +1,85 @@
+services:
+  printer-system:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: ghcr.io/powercess/printer_system:latest
+    container_name: printer-system
+    restart: unless-stopped
+    ports:
+      - "8080:8080"  # Backend API
+      - "3000:3000"  # Frontend
+    environment:
+      # Database
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=print_system
+      - DB_USERNAME=root
+      - DB_PASSWORD=your_password
+
+      # Sa-Token
+      - SA-TOKEN-SECRET-KEY=your-secret-key-change-in-production
+
+      # Storage
+      - STORAGE_TYPE=local
+      - UPLOAD_DIR=/app/uploads
+
+      # CUPS
+      - CUPS_HOST=host.containers.internal
+      - CUPS_PORT=631
+
+      # Payment
+      - PAY_PID=your_pay_pid
+      - PAY_KEY=your_pay_key
+      - BASE_URL=https://your-domain.com
+      - FRONTEND_URL=https://your-domain.com
+
+      # Gotenberg
+      - GOTENBERG_URL=http://gotenberg:3000
+
+      # JVM options (optional)
+      - JAVA_OPTS=-Xms512m -Xmx1g
+
+    volumes:
+      - uploads:/app/uploads
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api-docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  mysql:
+    image: mysql:8.4
+    container_name: printer-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=your_password
+      - MYSQL_DATABASE=print_system
+      - MYSQL_CHARSET=utf8mb4
+      - MYSQL_COLLATION=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Gotenberg service for PDF conversion
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: printer-gotenberg
+    restart: unless-stopped
+    # Uncomment to expose Gotenberg API
+    # ports:
+    #   - "3001:3000"
+
+volumes:
+  uploads:
+  mysql_data:
