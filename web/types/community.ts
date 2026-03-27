@@ -2,22 +2,19 @@
 
 export interface CommunityPost {
   id: string;
-  user_id: number;
+  userId: number;
   username: string;
-  title: string;
-  content: string;
-  file_id?: string;
-  file_name?: string;
-  likes_count: number;
-  is_liked: boolean;
-  created_at: string;
-  updated_at: string;
+  nickname?: string;
+  fileId: string;
+  fileName?: string;
+  filePath?: string;
+  likeCount: number;
+  isLiked: boolean;
+  createdAt: string;
 }
 
 export interface CreateShareRequest {
-  title: string;
-  content: string;
-  file_id?: string;
+  fileId: number;
 }
 
 export interface ShareListParams {
@@ -27,5 +24,5 @@ export interface ShareListParams {
 
 export interface LikeResponse {
   success: boolean;
-  likes_count: number;
+  likeCount: number;
 }

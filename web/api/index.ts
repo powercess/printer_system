@@ -122,10 +122,12 @@ export const useApiRequest = () => {
         body: body ? JSON.stringify(body) : undefined,
       }),
 
-    put: <T>(endpoint: string, body?: unknown) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    put: <T>(endpoint: string, body?: unknown, params?: any) =>
       request<T>(endpoint, {
         method: "PUT",
         body: body ? JSON.stringify(body) : undefined,
+        params,
       }),
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

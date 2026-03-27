@@ -19,9 +19,7 @@ export const useCommunityApi = () => {
     // 发布分享
     share: (data: CreateShareRequest) => {
       apiLog.requestStart("POST", "/api/community/share", {
-        fileId: data.file_id,
-        title: data.title,
-        contentLength: data.content?.length || 0,
+        fileId: data.fileId,
       });
       return post<CommunityPost>("/api/community/share", data);
     },
@@ -41,25 +39,25 @@ export const useCommunityApi = () => {
     // 获取分享详情
     getDetail: (postId: string) => {
       apiLog.requestStart("GET", "/api/community/detail", { postId });
-      return get<CommunityPost>("/api/community/detail", { post_id: postId });
+      return get<CommunityPost>("/api/community/detail", { postId });
     },
 
     // 点赞
-    like: (postId: string) => {
-      apiLog.requestStart("POST", "/api/community/like", { postId });
-      return post<LikeResponse>("/api/community/like", { post_id: postId });
+    like: (shareId: string) => {
+      apiLog.requestStart("POST", "/api/community/like", { shareId });
+      return post<LikeResponse>(`/api/community/like?shareId=${shareId}`);
     },
 
     // 取消点赞
-    unlike: (postId: string) => {
-      apiLog.requestStart("POST", "/api/community/unlike", { postId });
-      return post<LikeResponse>("/api/community/unlike", { post_id: postId });
+    unlike: (shareId: string) => {
+      apiLog.requestStart("DELETE", "/api/community/unlike", { shareId });
+      return del<LikeResponse>("/api/community/unlike", { shareId });
     },
 
     // 删除分享
-    delete: (postId: string) => {
-      apiLog.requestStart("DELETE", "/api/community/delete", { postId });
-      return del<{ success: boolean }>("/api/community/delete", { post_id: postId });
+    delete: (shareId: string) => {
+      apiLog.requestStart("DELETE", "/api/community/delete", { shareId });
+      return del<{ success: boolean }>("/api/community/delete", { shareId });
     },
   };
 };

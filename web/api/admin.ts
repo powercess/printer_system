@@ -20,21 +20,21 @@ interface AdminStats {
 interface AdminUserListParams {
   page?: number;
   pageSize?: number;
-  role?: "user" | "admin";
-  search?: string;
+  username?: string;
+  groupId?: number;
 }
 
 interface AdminFileListParams {
   page?: number;
   pageSize?: number;
-  user_id?: number;
+  userId?: number;
 }
 
 interface AdminOrderListParams {
   page?: number;
   pageSize?: number;
-  status?: Order["status"];
-  user_id?: number;
+  status?: number;
+  userId?: number;
 }
 
 export const useAdminApi = () => {
@@ -58,18 +58,20 @@ export const useAdminApi = () => {
     },
 
     // 更新用户
-    updateUser: (data: { user_id: number } & UpdateProfileRequest) => {
+    updateUser: (data: { userId: number } & UpdateProfileRequest) => {
       apiLog.requestStart("PUT", "/api/admin/user/update", {
-        userId: data.user_id,
+        userId: data.userId,
         fields: Object.keys(data),
       });
-      return put<User>("/api/admin/user/update", data);
+      // userId 作为 query param，其他字段作为 body
+      const { userId, ...body } = data;
+      return put<User>("/api/admin/user/update", body, { userId });
     },
 
     // 删除用户
     deleteUser: (userId: number) => {
       apiLog.requestStart("DELETE", "/api/admin/user/delete", { userId });
-      return del<{ success: boolean }>("/api/admin/user/delete", { user_id: userId });
+      return del<{ success: boolean }>("/api/admin/user/delete", { userId });
     },
 
     // 获取文件列表

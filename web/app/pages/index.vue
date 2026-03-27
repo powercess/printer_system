@@ -622,6 +622,7 @@ const previewExistingFile = async (file: FileInfo) => {
   log.userAction("预览已存在文件", { fileId: file.id, fileName: file.displayName });
 
   try {
+    const fileApi = useFileApi();
     const result = await fileApi.getDownloadUrl(file.id);
     if (result.downloadUrl) {
       window.open(result.downloadUrl, '_blank');

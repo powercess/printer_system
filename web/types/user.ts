@@ -9,7 +9,7 @@ export interface User {
   avatarUrl: string | null;
   groupId: number;
   groupName: string;
-  balance?: number; // 管理员列表接口可能返回
+  walletBalance?: number; // 管理员列表接口可能返回
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -68,8 +68,15 @@ export const TRANSACTION_TYPE_MAP: Record<number, "recharge" | "consume" | "refu
   2: "refund",
 };
 
+// 反向映射：字符串转数字
+export const TRANSACTION_TYPE_TO_NUMBER: Record<"recharge" | "consume" | "refund", number> = {
+  recharge: 0,
+  consume: 1,
+  refund: 2,
+};
+
 export interface TransactionListParams {
   page?: number;
   pageSize?: number;
-  type?: "recharge" | "consume" | "refund";
+  type?: number; // 0: recharge, 1: consume, 2: refund
 }

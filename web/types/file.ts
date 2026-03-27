@@ -22,7 +22,6 @@ export interface UploadFileParams {
 export interface FileListParams {
   page?: number;
   pageSize?: number;
-  file_type?: string;
 }
 
 export interface FileDetail {

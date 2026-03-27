@@ -28,29 +28,27 @@
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
-              <span class="font-semibold">{{ post.username }}</span>
-              <span class="text-sm text-gray-500">{{ formatDate(post.created_at) }}</span>
+              <span class="font-semibold">{{ post.nickname || post.username }}</span>
+              <span class="text-sm text-gray-500">{{ formatDate(post.createdAt) }}</span>
             </div>
-            <h3 class="font-semibold text-lg mb-2">{{ post.title }}</h3>
-            <p class="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{{ post.content }}</p>
 
-            <div v-if="post.file_name" class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center gap-2">
+            <div v-if="post.fileName" class="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center gap-2">
               <UIcon name="i-heroicons-outline-document" class="w-5 h-5 text-primary" />
-              <span class="text-sm">{{ post.file_name }}</span>
+              <span class="text-sm">{{ post.fileName }}</span>
             </div>
 
             <div class="flex items-center gap-4 mt-4">
               <button
                 class="flex items-center gap-1 text-sm"
-                :class="post.is_liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'"
+                :class="post.isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'"
                 @click="toggleLike(post)"
               >
-                <UIcon :name="post.is_liked ? 'i-heroicons-solid-heart' : 'i-heroicons-outline-heart'" class="w-5 h-5" />
-                <span>{{ post.likes_count }}</span>
+                <UIcon :name="post.isLiked ? 'i-heroicons-solid-heart' : 'i-heroicons-outline-heart'" class="w-5 h-5" />
+                <span>{{ post.likeCount }}</span>
               </button>
 
               <button
-                v-if="post.user_id === currentUserId"
+                v-if="post.userId === currentUserId"
                 class="text-sm text-gray-500 hover:text-red-500"
                 @click="confirmDelete(post)"
               >
@@ -76,23 +74,11 @@
       <template #content>
         <UCard>
           <template #header>
-            <h3 class="text-lg font-semibold">发布分享</h3>
+            <h3 class="text-lg font-semibold">分享文件</h3>
           </template>
 
           <form class="space-y-4" @submit.prevent="submitShare">
-            <UFormField label="标题" required>
-              <UInput v-model="shareForm.title" placeholder="请输入标题" />
-            </UFormField>
-
-            <UFormField label="内容" required>
-              <UTextarea
-                v-model="shareForm.content"
-                placeholder="分享你的打印经验..."
-                :rows="4"
-              />
-            </UFormField>
-
-            <UFormField label="附件文件（可选）">
+            <UFormField label="选择文件" required>
               <UInput
                 ref="shareFileInput"
                 type="file"
@@ -107,7 +93,7 @@
               <UButton color="neutral" variant="ghost" @click="shareModalOpen = false">
                 取消
               </UButton>
-              <UButton color="primary" :loading="submitting" @click="submitShare">
+              <UButton color="primary" :loading="submitting" :disabled="!shareForm.fileId" @click="submitShare">
                 发布
               </UButton>
             </div>
@@ -170,9 +156,7 @@ const pageSize = 10;
 const shareModalOpen = ref(false);
 const submitting = ref(false);
 const shareForm = reactive({
-  title: "",
-  content: "",
-  fileId: null as string | null,
+  fileId: null as number | null,
 });
 const shareFileInput = ref<HTMLInputElement | null>(null);
 
@@ -223,8 +207,8 @@ const handleShareFileSelect = async (e: Event) => {
 
   try {
     const result = await fileApi.upload(files[0]);
-    shareForm.fileId = result.file_id;
-    log.success("分享文件上传成功", { fileId: result.file_id });
+    shareForm.fileId = result.fileId;
+    log.success("分享文件上传成功", { fileId: result.fileId });
     toast.success("文件上传成功");
   } catch (error) {
     log.error("分享文件上传失败", error);
@@ -233,28 +217,24 @@ const handleShareFileSelect = async (e: Event) => {
 };
 
 const submitShare = async () => {
-  log.formSubmit("分享表单", { title: shareForm.title, hasFile: !!shareForm.fileId });
+  log.formSubmit("分享表单", { hasFile: !!shareForm.fileId });
 
-  if (!shareForm.title || !shareForm.content) {
-    log.warn("表单验证失败: 缺少必填字段");
-    toast.error("请填写标题和内容");
+  if (!shareForm.fileId) {
+    log.warn("表单验证失败: 未选择文件");
+    toast.error("请选择要分享的文件");
     return;
   }
 
-  log.userAction("发布分享", { title: shareForm.title });
+  log.userAction("发布分享", { fileId: shareForm.fileId });
   submitting.value = true;
   try {
     await communityApi.share({
-      title: shareForm.title,
-      content: shareForm.content,
-      file_id: shareForm.fileId || undefined,
+      fileId: shareForm.fileId,
     });
 
     log.success("分享发布成功");
     toast.success("分享成功");
     shareModalOpen.value = false;
-    shareForm.title = "";
-    shareForm.content = "";
     shareForm.fileId = null;
     await fetchPosts();
   } catch (error) {
@@ -266,11 +246,11 @@ const submitShare = async () => {
 };
 
 const toggleLike = async (post: CommunityPost) => {
-  const action = post.is_liked ? "取消点赞" : "点赞";
-  log.userAction(action, { postId: post.id, title: post.title });
+  const action = post.isLiked ? "取消点赞" : "点赞";
+  log.userAction(action, { postId: post.id });
 
   try {
-    if (post.is_liked) {
+    if (post.isLiked) {
       await communityApi.unlike(post.id);
     } else {
       await communityApi.like(post.id);
@@ -284,7 +264,7 @@ const toggleLike = async (post: CommunityPost) => {
 };
 
 const confirmDelete = (post: CommunityPost) => {
-  log.debug("确认删除分享", { postId: post.id, title: post.title });
+  log.debug("确认删除分享", { postId: post.id, fileName: post.fileName });
   postToDelete.value = post;
   deleteModalOpen.value = true;
 };
@@ -292,7 +272,7 @@ const confirmDelete = (post: CommunityPost) => {
 const deletePost = async () => {
   if (!postToDelete.value) return;
 
-  log.userAction("删除分享", { postId: postToDelete.value.id, title: postToDelete.value.title });
+  log.userAction("删除分享", { postId: postToDelete.value.id, fileName: postToDelete.value.fileName });
   deleting.value = true;
   try {
     await communityApi.delete(postToDelete.value.id);

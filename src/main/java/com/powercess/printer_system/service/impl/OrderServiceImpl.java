@@ -117,6 +117,16 @@ public class OrderServiceImpl implements OrderService {
         IPage<Order> pageResult = orderMapper.selectPage(
             new Page<>(page, Math.min(pageSize, 100)), wrapper);
 
+        // 填充文件名
+        for (Order order : pageResult.getRecords()) {
+            if (order.getFileId() != null) {
+                UserFile file = userFileMapper.selectById(order.getFileId());
+                if (file != null) {
+                    order.setFileName(file.getDisplayName());
+                }
+            }
+        }
+
         return PageResult.of(pageResult.getTotal(), page, pageSize, pageResult.getRecords());
     }
 

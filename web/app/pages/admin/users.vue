@@ -31,7 +31,7 @@
         </template>
 
         <template #balance-cell="{ row }">
-          ¥{{ (row.original.balance ?? 0).toFixed(2) }}
+          ¥{{ (row.original.walletBalance ?? 0).toFixed(2) }}
         </template>
 
         <template #created_at-cell="{ row }">
@@ -236,7 +236,7 @@ const fetchUsers = async () => {
     const result = await adminApi.getUserList({
       page: currentPage.value,
       pageSize: pageSize,
-      search: searchQuery.value || undefined,
+      username: searchQuery.value || undefined,
     });
     users.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);
@@ -282,7 +282,7 @@ const updateUser = async () => {
   submitting.value = true;
   try {
     await adminApi.updateUser({
-      user_id: userToEdit.value.id,
+      userId: userToEdit.value.id,
       email: editForm.email,
       password: editForm.password || undefined,
     });

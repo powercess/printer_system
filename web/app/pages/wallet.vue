@@ -95,17 +95,14 @@
           <div class="flex items-center gap-3">
             <div
               class="w-10 h-10 rounded-full flex items-center justify-center"
-              :class="getTypeStyle(tx.type, tx.source)?.bgClass"
+              :class="getTypeStyle(tx.type, tx.source, tx.paymentMethod)?.bgClass"
             >
-              <UIcon :name="getTypeStyle(tx.type, tx.source)?.icon ?? ''" class="w-5 h-5" />
+              <UIcon :name="getTypeStyle(tx.type, tx.source, tx.paymentMethod)?.icon ?? ''" class="w-5 h-5" />
             </div>
             <div>
-              <p class="font-medium">{{ tx.description || getTypeLabel(tx.type) }}</p>
+              <p class="font-medium">{{ tx.description || getTypeLabel(tx.type, tx.source, tx.paymentMethod) }}</p>
               <p class="text-sm text-gray-500">
                 {{ formatDate(tx.createdAt) }}
-                <span v-if="tx.paymentMethod" class="ml-2 text-xs text-gray-400">
-                  ({{ tx.paymentMethod === 'wechat' ? '微信' : tx.paymentMethod === 'alipay' ? '支付宝' : tx.paymentMethod }})
-                </span>
               </p>
               <p v-if="tx.printerName" class="text-xs text-gray-400">
                 打印机: {{ tx.printerName }}
@@ -114,9 +111,9 @@
           </div>
           <p
             class="text-lg font-bold"
-            :class="getTypeStyle(tx.type, tx.source)?.textClass"
+            :class="getTypeStyle(tx.type, tx.source, tx.paymentMethod)?.textClass"
           >
-            {{ getTypeStyle(tx.type, tx.source)?.prefix ?? '' }}¥{{ tx.amount.toFixed(2) }}
+            {{ getTypeStyle(tx.type, tx.source, tx.paymentMethod)?.prefix ?? '' }}¥{{ tx.amount.toFixed(2) }}
           </p>
         </div>
       </div>
@@ -135,7 +132,7 @@
 
 <script setup lang="ts">
 import type { Transaction } from "../../types/user";
-import { TRANSACTION_TYPE_MAP } from "../../types/user";
+import { TRANSACTION_TYPE_MAP, TRANSACTION_TYPE_TO_NUMBER } from "../../types/user";
 import { useUserStore } from "../../stores/user";
 import { useAppToast } from "../../composables/useToast";
 import { useUserApi } from "../../api/user";
@@ -177,19 +174,11 @@ const pageSize = 10;
 const transactionTypeOptions = [
   { value: "all", label: "全部" },
   { value: "recharge", label: "充值" },
-  { value: "consume", label: "消费" },
   { value: "refund", label: "退款" },
 ];
 
-const getTypeStyle = (type: number, source?: string) => {
-  const typeStr = TRANSACTION_TYPE_MAP[type] || "consume";
-  const styles: Record<string, { bgClass: string; textClass: string; icon: string; prefix: string }> = {
-    recharge: { bgClass: "bg-green-100 text-green-600", textClass: "text-green-600", icon: "i-heroicons-solid-plus", prefix: "+" },
-    consume: { bgClass: "bg-red-100 text-red-600", textClass: "text-red-600", icon: "i-heroicons-solid-minus", prefix: "-" },
-    refund: { bgClass: "bg-blue-100 text-blue-600", textClass: "text-green-600", icon: "i-heroicons-outline-arrow-uturn-left", prefix: "+" },
-  };
-
-  // 如果是直接支付的订单，使用不同的图标
+const getTypeStyle = (type: number, source?: string, paymentMethod?: string) => {
+  // 如果是直接支付的订单（微信/支付宝直接支付打印）
   if (source === "payment" && type === 1) {
     return {
       bgClass: "bg-orange-100 text-orange-600",
@@ -199,13 +188,26 @@ const getTypeStyle = (type: number, source?: string) => {
     };
   }
 
+  const typeStr = TRANSACTION_TYPE_MAP[type] || "consume";
+  const styles: Record<string, { bgClass: string; textClass: string; icon: string; prefix: string }> = {
+    recharge: { bgClass: "bg-green-100 text-green-600", textClass: "text-green-600", icon: "i-heroicons-solid-plus", prefix: "+" },
+    consume: { bgClass: "bg-red-100 text-red-600", textClass: "text-red-600", icon: "i-heroicons-solid-minus", prefix: "-" },
+    refund: { bgClass: "bg-blue-100 text-blue-600", textClass: "text-green-600", icon: "i-heroicons-outline-arrow-uturn-left", prefix: "+" },
+  };
+
   return styles[typeStr] ?? styles.consume;
 };
 
-const getTypeLabel = (type: number): string => {
+const getTypeLabel = (type: number, source?: string, paymentMethod?: string): string => {
+  // 如果是直接支付的订单
+  if (source === "payment" && type === 1) {
+    const methodLabel = paymentMethod === "wechat" ? "微信支付" : paymentMethod === "alipay" ? "支付宝支付" : "直接支付";
+    return `打印消费（${methodLabel}）`;
+  }
+
   const labels: Record<string, string> = {
-    recharge: "充值",
-    consume: "消费",
+    recharge: "钱包充值",
+    consume: "钱包消费",
     refund: "退款",
   };
   return labels[TRANSACTION_TYPE_MAP[type] ?? "consume"] ?? "消费";
@@ -263,10 +265,16 @@ const fetchTransactions = async () => {
   log.loadStart("交易记录");
   loadingTransactions.value = true;
   try {
+    // 转换类型参数：字符串转数字
+    let typeParam: number | undefined;
+    if (transactionType.value !== "all") {
+      typeParam = TRANSACTION_TYPE_TO_NUMBER[transactionType.value as "recharge" | "refund"];
+    }
+
     const result = await userApi.getTransactions({
       page: currentPage.value,
       pageSize: pageSize,
-      type: transactionType.value === "all" ? undefined : transactionType.value as "recharge" | "consume" | "refund",
+      type: typeParam,
     });
     transactions.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);

@@ -87,9 +87,9 @@ export const useUserStore = defineStore("user", {
       log.actionStart("updateBalance", { newBalance: balance });
       const oldBalance = this.balance;
       this.balance = balance;
-      // 同步更新 user 对象中的 balance
+      // 同步更新 user 对象中的 walletBalance
       if (this.user) {
-        this.user = { ...this.user, balance };
+        this.user = { ...this.user, walletBalance: balance };
       }
       setUserToStorage({ user: this.user, balance: this.balance });
       log.stateChange("balance", oldBalance, balance);

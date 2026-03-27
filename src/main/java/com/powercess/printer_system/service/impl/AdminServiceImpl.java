@@ -211,6 +211,22 @@ public class AdminServiceImpl implements AdminService {
         IPage<Order> pageResult = orderMapper.selectPage(
             new Page<>(page, Math.min(pageSize, 100)), wrapper);
 
+        // 填充文件名和用户名
+        for (Order order : pageResult.getRecords()) {
+            if (order.getFileId() != null) {
+                UserFile file = userFileMapper.selectById(order.getFileId());
+                if (file != null) {
+                    order.setFileName(file.getDisplayName());
+                }
+            }
+            if (order.getUserId() != null) {
+                User user = userMapper.selectById(order.getUserId());
+                if (user != null) {
+                    order.setUsername(user.getUsername());
+                }
+            }
+        }
+
         log.debug("[Admin {}] Found {} orders", adminId, pageResult.getTotal());
         return PageResult.of(pageResult.getTotal(), page, pageSize, pageResult.getRecords());
     }
@@ -227,12 +243,12 @@ public class AdminServiceImpl implements AdminService {
         log.debug("[Admin {}] Stats: totalUsers={}, totalOrders={}", adminId, totalUsers, totalOrders);
 
         Map<String, Object> stats = new HashMap<>();
-        stats.put("totalUsers", totalUsers);
-        stats.put("totalOrders", totalOrders);
-        stats.put("totalRevenue", 0.0);
-        stats.put("todayOrders", 0);
-        stats.put("todayRevenue", 0.0);
-        stats.put("activePrinters", 0);
+        stats.put("total_users", totalUsers);
+        stats.put("total_orders", totalOrders);
+        stats.put("total_revenue", 0.0);
+        stats.put("today_orders", 0);
+        stats.put("today_revenue", 0.0);
+        stats.put("active_printers", 0);
 
         return stats;
     }
