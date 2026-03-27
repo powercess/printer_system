@@ -1,7 +1,6 @@
 // 管理员相关 API
 
-import type { User, UpdateProfileRequest } from "../types/user";
-import type { FileInfo } from "../types/file";
+import type { User } from "../types/user";
 import type { Order } from "../types/order";
 import type { PaginatedResponse } from "../types/api";
 import { useApiRequest } from "./index";
@@ -15,6 +14,7 @@ interface AdminStats {
   total_revenue: number;
   today_orders: number;
   today_revenue: number;
+  active_printers: number;
 }
 
 interface AdminUserListParams {
@@ -37,16 +37,33 @@ interface AdminOrderListParams {
   userId?: number;
 }
 
+interface CreateUserData {
+  username: string;
+  password: string;
+  email: string;
+  nickname?: string;
+  groupId?: number;
+}
+
+interface UpdateUserData {
+  userId: number;
+  nickname?: string;
+  email?: string;
+  password?: string;
+  groupId?: number;
+  walletBalance?: number;
+}
+
 export const useAdminApi = () => {
   const { get, post, put, delete: del } = useApiRequest();
 
   return {
     // 创建用户
-    createUser: (data: { username: string; password: string; email: string; role?: "user" | "admin" }) => {
+    createUser: (data: CreateUserData) => {
       apiLog.requestStart("POST", "/api/admin/user/create", {
         username: data.username,
         email: data.email,
-        role: data.role || "user",
+        groupId: data.groupId,
       });
       return post<User>("/api/admin/user/create", data);
     },
@@ -58,12 +75,11 @@ export const useAdminApi = () => {
     },
 
     // 更新用户
-    updateUser: (data: { userId: number } & UpdateProfileRequest) => {
+    updateUser: (data: UpdateUserData) => {
       apiLog.requestStart("PUT", "/api/admin/user/update", {
         userId: data.userId,
         fields: Object.keys(data),
       });
-      // userId 作为 query param，其他字段作为 body
       const { userId, ...body } = data;
       return put<User>("/api/admin/user/update", body, { userId });
     },
@@ -77,7 +93,7 @@ export const useAdminApi = () => {
     // 获取文件列表
     getFileList: (params?: AdminFileListParams) => {
       apiLog.requestStart("GET", "/api/admin/file/list", params);
-      return get<PaginatedResponse<FileInfo>>("/api/admin/file/list", params);
+      return get<PaginatedResponse<any>>("/api/admin/file/list", params);
     },
 
     // 获取订单列表

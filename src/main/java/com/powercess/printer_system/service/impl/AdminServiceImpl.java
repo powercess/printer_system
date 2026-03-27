@@ -135,6 +135,18 @@ public class AdminServiceImpl implements AdminService {
         if (request.nickname() != null) {
             user.setNickname(request.nickname());
         }
+        if (request.email() != null && !request.email().isEmpty()) {
+            // 检查邮箱是否已被其他用户使用
+            userMapper.findByEmail(request.email()).ifPresent(existingUser -> {
+                if (!existingUser.getId().equals(userId)) {
+                    throw new BusinessException(400, "邮箱已被其他用户使用");
+                }
+            });
+            user.setEmail(request.email());
+        }
+        if (request.password() != null && !request.password().isEmpty()) {
+            user.setPasswordHash(PasswordUtil.hash(request.password()));
+        }
         if (request.walletBalance() != null) {
             log.info("[Admin {}] Updating wallet balance: userId={}, oldBalance={}, newBalance={}",
                 adminId, userId, user.getWalletBalance(), request.walletBalance());
