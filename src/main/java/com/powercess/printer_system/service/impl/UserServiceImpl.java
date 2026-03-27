@@ -11,11 +11,13 @@ import com.powercess.printer_system.entity.Payment;
 import com.powercess.printer_system.entity.User;
 import com.powercess.printer_system.entity.UserGroup;
 import com.powercess.printer_system.entity.WalletTransaction;
+import com.powercess.printer_system.entity.Order;
 import com.powercess.printer_system.exception.BusinessException;
 import com.powercess.printer_system.mapper.PaymentMapper;
 import com.powercess.printer_system.mapper.UserGroupMapper;
 import com.powercess.printer_system.mapper.UserMapper;
 import com.powercess.printer_system.mapper.WalletTransactionMapper;
+import com.powercess.printer_system.mapper.OrderMapper;
 import com.powercess.printer_system.payment.QixiangPayClient;
 import com.powercess.printer_system.payment.QixiangPayRequest;
 import com.powercess.printer_system.payment.QixiangPayResponse;
@@ -29,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +45,7 @@ public class UserServiceImpl implements UserService {
     private final UserGroupMapper userGroupMapper;
     private final WalletTransactionMapper walletTransactionMapper;
     private final PaymentMapper paymentMapper;
+    private final OrderMapper orderMapper;
     private final QixiangPayClient qixiangPayClient;
     private final AppProperties appProperties;
 
@@ -289,32 +293,97 @@ public class UserServiceImpl implements UserService {
     @Override
     public PageResult<Map<String, Object>> getWalletTransactions(Long userId, int page, int pageSize, Integer type) {
         log.debug("Getting wallet transactions: userId={}, page={}, pageSize={}, type={}", userId, page, pageSize, type);
-        LambdaQueryWrapper<WalletTransaction> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(WalletTransaction::getUserId, userId);
-        if (type != null) {
-            wrapper.eq(WalletTransaction::getType, type);
+
+        List<Map<String, Object>> allRecords = new ArrayList<>();
+
+        // 1. 获取钱包交易记录
+        if (type == null || type == 0 || type == 1 || type == 2) {
+            LambdaQueryWrapper<WalletTransaction> walletWrapper = new LambdaQueryWrapper<>();
+            walletWrapper.eq(WalletTransaction::getUserId, userId);
+            if (type != null) {
+                walletWrapper.eq(WalletTransaction::getType, type);
+            }
+            List<WalletTransaction> walletTransactions = walletTransactionMapper.selectList(walletWrapper);
+
+            for (WalletTransaction t : walletTransactions) {
+                Map<String, Object> record = new HashMap<>();
+                record.put("id", "W" + t.getId());
+                record.put("type", t.getType());
+                record.put("amount", t.getAmount());
+                record.put("balanceBefore", t.getBalanceBefore());
+                record.put("balanceAfter", t.getBalanceAfter());
+                record.put("relatedId", t.getRelatedId());
+                record.put("createdAt", t.getCreatedAt());
+                record.put("source", "wallet"); // 数据来源
+                record.put("description", getTypeDescription(t.getType(), null, null));
+                allRecords.add(record);
+            }
         }
-        wrapper.orderByDesc(WalletTransaction::getCreatedAt);
 
-        IPage<WalletTransaction> pageResult = walletTransactionMapper.selectPage(
-            new Page<>(page, Math.min(pageSize, 100)), wrapper);
+        // 2. 获取直接支付的订单记录（微信/支付宝支付）
+        if (type == null || type == 1) { // type=1 是消费
+            LambdaQueryWrapper<Payment> paymentWrapper = new LambdaQueryWrapper<>();
+            paymentWrapper.eq(Payment::getUserId, userId);
+            paymentWrapper.eq(Payment::getPaymentType, "order"); // 只获取订单支付
+            paymentWrapper.eq(Payment::getStatus, 1); // 只获取已支付的
+            List<Payment> payments = paymentMapper.selectList(paymentWrapper);
 
-        log.debug("Found {} wallet transactions for user {}", pageResult.getTotal(), userId);
+            for (Payment p : payments) {
+                // 获取关联订单信息
+                Order order = orderMapper.selectById(p.getOrderId());
+                if (order != null) {
+                    Map<String, Object> record = new HashMap<>();
+                    record.put("id", "P" + p.getId());
+                    record.put("type", 1); // 消费
+                    record.put("amount", order.getFinalAmount());
+                    record.put("balanceBefore", null); // 直接支付没有余额变化
+                    record.put("balanceAfter", null);
+                    record.put("relatedId", "order_" + p.getOrderId());
+                    record.put("createdAt", p.getPaidAt() != null ? p.getPaidAt() : order.getCreatedAt());
+                    record.put("source", "payment"); // 数据来源
+                    record.put("paymentMethod", p.getPaymentMethod());
+                    record.put("orderId", order.getId());
+                    record.put("printerName", order.getPrinterName());
+                    record.put("description", "打印订单 #" + order.getId() + " (" + p.getPaymentMethod() + "支付)");
+                    allRecords.add(record);
+                }
+            }
+        }
 
-        List<Map<String, Object>> items = pageResult.getRecords().stream()
-            .map(t -> {
-                Map<String, Object> map = new HashMap<>();
-                map.put("id", t.getId());
-                map.put("type", t.getType());
-                map.put("amount", t.getAmount());
-                map.put("balanceBefore", t.getBalanceBefore());
-                map.put("balanceAfter", t.getBalanceAfter());
-                map.put("relatedId", t.getRelatedId());
-                map.put("createdAt", t.getCreatedAt());
-                return map;
-            })
-            .toList();
+        // 3. 按时间倒序排序
+        allRecords.sort((a, b) -> {
+            LocalDateTime timeA = (LocalDateTime) a.get("createdAt");
+            LocalDateTime timeB = (LocalDateTime) b.get("createdAt");
+            if (timeA == null && timeB == null) return 0;
+            if (timeA == null) return 1;
+            if (timeB == null) return -1;
+            return timeB.compareTo(timeA);
+        });
 
-        return PageResult.of(pageResult.getTotal(), page, pageSize, items);
+        // 4. 分页
+        int total = allRecords.size();
+        int fromIndex = (page - 1) * pageSize;
+        int toIndex = Math.min(fromIndex + pageSize, total);
+
+        List<Map<String, Object>> pagedRecords;
+        if (fromIndex >= total) {
+            pagedRecords = new ArrayList<>();
+        } else {
+            pagedRecords = allRecords.subList(fromIndex, toIndex);
+        }
+
+        log.debug("Found {} total transactions, returning page {} with {} items", total, page, pagedRecords.size());
+
+        return PageResult.of(total, page, pageSize, pagedRecords);
+    }
+
+    private String getTypeDescription(Integer type, String paymentMethod, Order order) {
+        if (type == null) return "交易";
+        return switch (type) {
+            case 0 -> "充值";
+            case 1 -> paymentMethod != null ? "打印消费(" + paymentMethod + "支付)" : "消费";
+            case 2 -> "退款";
+            default -> "交易";
+        };
     }
 }

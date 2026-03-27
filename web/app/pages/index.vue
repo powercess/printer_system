@@ -511,7 +511,7 @@ const fetchExistingFiles = async () => {
   loadingExistingFiles.value = true;
   try {
     const fileApi = useFileApi();
-    const result = await fileApi.getList({ page: 1, page_size: 50 });
+    const result = await fileApi.getList({ page: 1, pageSize: 50 });
     existingFiles.value = result.items;
   } catch (error) {
     log.error("获取文件列表失败", error);

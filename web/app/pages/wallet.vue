@@ -95,20 +95,28 @@
           <div class="flex items-center gap-3">
             <div
               class="w-10 h-10 rounded-full flex items-center justify-center"
-              :class="getTypeStyle(tx.type)?.bgClass"
+              :class="getTypeStyle(tx.type, tx.source)?.bgClass"
             >
-              <UIcon :name="getTypeStyle(tx.type)?.icon ?? ''" class="w-5 h-5" />
+              <UIcon :name="getTypeStyle(tx.type, tx.source)?.icon ?? ''" class="w-5 h-5" />
             </div>
             <div>
-              <p class="font-medium">{{ getTypeLabel(tx.type) }}</p>
-              <p class="text-sm text-gray-500">{{ formatDate(tx.createdAt) }}</p>
+              <p class="font-medium">{{ tx.description || getTypeLabel(tx.type) }}</p>
+              <p class="text-sm text-gray-500">
+                {{ formatDate(tx.createdAt) }}
+                <span v-if="tx.paymentMethod" class="ml-2 text-xs text-gray-400">
+                  ({{ tx.paymentMethod === 'wechat' ? '微信' : tx.paymentMethod === 'alipay' ? '支付宝' : tx.paymentMethod }})
+                </span>
+              </p>
+              <p v-if="tx.printerName" class="text-xs text-gray-400">
+                打印机: {{ tx.printerName }}
+              </p>
             </div>
           </div>
           <p
             class="text-lg font-bold"
-            :class="getTypeStyle(tx.type)?.textClass"
+            :class="getTypeStyle(tx.type, tx.source)?.textClass"
           >
-            {{ getTypeStyle(tx.type)?.prefix ?? '' }}¥{{ tx.amount.toFixed(2) }}
+            {{ getTypeStyle(tx.type, tx.source)?.prefix ?? '' }}¥{{ tx.amount.toFixed(2) }}
           </p>
         </div>
       </div>
@@ -173,13 +181,24 @@ const transactionTypeOptions = [
   { value: "refund", label: "退款" },
 ];
 
-const getTypeStyle = (type: number) => {
+const getTypeStyle = (type: number, source?: string) => {
   const typeStr = TRANSACTION_TYPE_MAP[type] || "consume";
   const styles: Record<string, { bgClass: string; textClass: string; icon: string; prefix: string }> = {
     recharge: { bgClass: "bg-green-100 text-green-600", textClass: "text-green-600", icon: "i-heroicons-solid-plus", prefix: "+" },
     consume: { bgClass: "bg-red-100 text-red-600", textClass: "text-red-600", icon: "i-heroicons-solid-minus", prefix: "-" },
     refund: { bgClass: "bg-blue-100 text-blue-600", textClass: "text-green-600", icon: "i-heroicons-outline-arrow-uturn-left", prefix: "+" },
   };
+
+  // 如果是直接支付的订单，使用不同的图标
+  if (source === "payment" && type === 1) {
+    return {
+      bgClass: "bg-orange-100 text-orange-600",
+      textClass: "text-orange-600",
+      icon: "i-heroicons-outline-printer",
+      prefix: "-"
+    };
+  }
+
   return styles[typeStr] ?? styles.consume;
 };
 
@@ -246,7 +265,7 @@ const fetchTransactions = async () => {
   try {
     const result = await userApi.getTransactions({
       page: currentPage.value,
-      page_size: pageSize,
+      pageSize: pageSize,
       type: transactionType.value === "all" ? undefined : transactionType.value as "recharge" | "consume" | "refund",
     });
     transactions.value = result.items;

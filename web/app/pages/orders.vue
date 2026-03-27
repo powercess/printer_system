@@ -184,7 +184,7 @@ const fetchOrders = async () => {
   try {
     const result = await orderApi.getList({
       page: currentPage.value,
-      page_size: pageSize,
+      pageSize: pageSize,
       status: statusFilter.value === "all" ? undefined : STATUS_TO_NUMBER_MAP[statusFilter.value as OrderStatus],
     });
     orders.value = result.items;

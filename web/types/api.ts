@@ -21,7 +21,7 @@ export interface PaginatedResponse<T> {
 
 export interface PaginationParams {
   page?: number;
-  page_size?: number;
+  pageSize?: number;
 }
 
 // 通用文件上传响应

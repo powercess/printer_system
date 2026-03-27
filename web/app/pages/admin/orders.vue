@@ -104,7 +104,7 @@ const fetchOrders = async () => {
   try {
     const result = await adminApi.getOrderList({
       page: currentPage.value,
-      page_size: pageSize,
+      pageSize: pageSize,
       status: statusFilter.value ? Number(statusFilter.value) as Order["status"] : undefined,
     });
     orders.value = result.items;

@@ -47,13 +47,18 @@ export interface RechargeRequest {
 }
 
 export interface Transaction {
-  id: number;
+  id: string; // 可能是 "W" + id 或 "P" + id
   amount: number;
-  balanceBefore: number;
-  balanceAfter: number;
+  balanceBefore: number | null;
+  balanceAfter: number | null;
   type: number; // 0: recharge, 1: consume, 2: refund
   relatedId: string;
   createdAt: string;
+  source: "wallet" | "payment"; // 数据来源
+  description?: string; // 交易描述
+  paymentMethod?: string; // 支付方式（直接支付时）
+  orderId?: number; // 订单ID（直接支付时）
+  printerName?: string; // 打印机名称（直接支付时）
 }
 
 // 交易类型映射
@@ -65,6 +70,6 @@ export const TRANSACTION_TYPE_MAP: Record<number, "recharge" | "consume" | "refu
 
 export interface TransactionListParams {
   page?: number;
-  page_size?: number;
+  pageSize?: number;
   type?: "recharge" | "consume" | "refund";
 }

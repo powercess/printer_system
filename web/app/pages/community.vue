@@ -201,7 +201,7 @@ const fetchPosts = async () => {
   try {
     const result = await communityApi.getList({
       page: currentPage.value,
-      page_size: pageSize,
+      pageSize: pageSize,
     });
     posts.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);

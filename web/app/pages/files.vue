@@ -247,7 +247,7 @@ const fetchFiles = async () => {
   try {
     const result = await fileApi.getList({
       page: currentPage.value,
-      page_size: pageSize,
+      pageSize: pageSize,
     });
     files.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);

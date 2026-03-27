@@ -19,20 +19,20 @@ interface AdminStats {
 
 interface AdminUserListParams {
   page?: number;
-  page_size?: number;
+  pageSize?: number;
   role?: "user" | "admin";
   search?: string;
 }
 
 interface AdminFileListParams {
   page?: number;
-  page_size?: number;
+  pageSize?: number;
   user_id?: number;
 }
 
 interface AdminOrderListParams {
   page?: number;
-  page_size?: number;
+  pageSize?: number;
   status?: Order["status"];
   user_id?: number;
 }

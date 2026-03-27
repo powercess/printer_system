@@ -16,7 +16,7 @@ export interface Promotion {
 
 export interface PromotionListParams {
   page?: number;
-  page_size?: number;
+  pageSize?: number;
   is_active?: boolean;
 }
 

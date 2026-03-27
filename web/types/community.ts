@@ -22,7 +22,7 @@ export interface CreateShareRequest {
 
 export interface ShareListParams {
   page?: number;
-  page_size?: number;
+  pageSize?: number;
 }
 
 export interface LikeResponse {

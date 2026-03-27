@@ -67,7 +67,7 @@ export interface EstimatePriceRequest {
 
 export interface OrderListParams {
   page?: number;
-  page_size?: number;
+  pageSize?: number;
   status?: number;
 }
 

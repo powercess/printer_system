@@ -385,10 +385,32 @@ public class PaymentServiceImpl implements PaymentService {
         result.put("paymentId", outTradeNo);
         result.put("status", payment.getStatus());
         result.put("amount", payment.getAmount());
+        result.put("paymentType", payment.getPaymentType()); // 始终返回支付类型
 
         // If already paid, return success
         if (payment.getStatus() == 1) {
             result.put("message", "支付已完成");
+
+            // 如果是订单支付，返回订单详情
+            if ("order".equals(payment.getPaymentType())) {
+                Order order = orderMapper.selectById(payment.getOrderId());
+                if (order != null) {
+                    result.put("orderId", order.getId());
+                    result.put("printerName", order.getPrinterName());
+                    result.put("copies", order.getCopies());
+                    result.put("colorMode", order.getColorMode());
+                    result.put("duplex", order.getDuplex());
+                    result.put("paperSize", order.getPaperSize());
+                    result.put("finalAmount", order.getFinalAmount());
+                }
+            } else if ("wallet".equals(payment.getPaymentType())) {
+                // 钱包充值，返回余额
+                User user = userMapper.selectById(userId);
+                if (user != null) {
+                    result.put("balance", user.getWalletBalance());
+                }
+            }
+
             return result;
         }
 

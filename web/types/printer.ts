@@ -37,7 +37,7 @@ export interface PrintJob {
 
 export interface PrintJobsParams {
   page?: number;
-  page_size?: number;
+  pageSize?: number;
   printer_name?: string;
   status?: PrintJob["status"];
 }

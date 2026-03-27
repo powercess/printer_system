@@ -114,7 +114,7 @@ const fetchFiles = async () => {
   try {
     const result = await adminApi.getFileList({
       page: currentPage.value,
-      page_size: pageSize,
+      pageSize: pageSize,
     });
     files.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);

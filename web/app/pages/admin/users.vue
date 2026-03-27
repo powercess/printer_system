@@ -235,7 +235,7 @@ const fetchUsers = async () => {
   try {
     const result = await adminApi.getUserList({
       page: currentPage.value,
-      page_size: pageSize,
+      pageSize: pageSize,
       search: searchQuery.value || undefined,
     });
     users.value = result.items;
