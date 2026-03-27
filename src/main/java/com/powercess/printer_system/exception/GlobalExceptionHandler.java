@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -64,6 +65,17 @@ public class GlobalExceptionHandler {
             .collect(Collectors.joining(", "));
         log.warn("Constraint violation exception: {}", message);
         return Result.badRequest(message);
+    }
+
+    /**
+     * Handle NoResourceFoundException for missing static resources.
+     * This suppresses verbose stack traces from security scanners probing for PHP files.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result<Void> handleNoResourceFoundException(NoResourceFoundException e) {
+        // Log at debug level to avoid log noise from security scanner probes
+        log.debug("Resource not found: {}", e.getResourcePath());
+        return Result.error(404, "资源不存在");
     }
 
     @ExceptionHandler(Exception.class)

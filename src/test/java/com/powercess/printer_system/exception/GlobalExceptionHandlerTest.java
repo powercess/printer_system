@@ -123,6 +123,17 @@ class GlobalExceptionHandlerTest {
         Result<Void> result = handler.handleException(exception);
 
         assertThat(result.code()).isEqualTo(500);
+        assertThat(result.message()).isEqualTo("Unexpected error");
+    }
+
+    @Test
+    @DisplayName("应该处理没有消息的Exception")
+    void shouldHandleExceptionWithNullMessage() {
+        Exception exception = new RuntimeException();
+
+        Result<Void> result = handler.handleException(exception);
+
+        assertThat(result.code()).isEqualTo(500);
         assertThat(result.message()).isEqualTo("服务器内部错误");
     }
 }

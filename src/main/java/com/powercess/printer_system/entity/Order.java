@@ -37,6 +37,8 @@ public class Order {
 
     private Integer status;
 
+    private Integer cupsJobId;  // CUPS print job ID for status tracking
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

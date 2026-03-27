@@ -110,7 +110,7 @@
 
 <script setup lang="ts">
 import type { Order, OrderStatus } from "../../types/order";
-import { ORDER_STATUS_MAP, COLOR_MODE_MAP } from "../../types/order";
+import { ORDER_STATUS_MAP, COLOR_MODE_MAP, STATUS_TO_NUMBER_MAP } from "../../types/order";
 import { useAppToast } from "../../composables/useToast";
 import { useOrderApi } from "../../api/order";
 import { createPageLogger } from "../../utils/logger";
@@ -140,6 +140,7 @@ const orderApi = useOrderApi();
 const statusOptions = [
   { value: "all", label: "全部状态" },
   { value: "pending", label: "待处理" },
+  { value: "paid", label: "已支付" },
   { value: "printing", label: "打印中" },
   { value: "completed", label: "已完成" },
   { value: "cancelled", label: "已取消" },
@@ -148,6 +149,7 @@ const statusOptions = [
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: "待处理",
+  paid: "已支付",
   printing: "打印中",
   completed: "已完成",
   cancelled: "已取消",
@@ -156,6 +158,7 @@ const statusLabels: Record<OrderStatus, string> = {
 
 const statusColors: Record<OrderStatus, "warning" | "info" | "success" | "neutral" | "error"> = {
   pending: "warning",
+  paid: "info",
   printing: "info",
   completed: "success",
   cancelled: "neutral",
@@ -182,7 +185,7 @@ const fetchOrders = async () => {
     const result = await orderApi.getList({
       page: currentPage.value,
       page_size: pageSize,
-      status: statusFilter.value === "all" ? undefined : statusFilter.value as OrderStatus,
+      status: statusFilter.value === "all" ? undefined : STATUS_TO_NUMBER_MAP[statusFilter.value as OrderStatus],
     });
     orders.value = result.items;
     totalPages.value = Math.ceil(result.total / pageSize);
@@ -207,7 +210,7 @@ const cancelOrder = async () => {
   log.userAction("取消订单", { orderId: orderToCancel.value.id, fileName: orderToCancel.value.fileName });
   cancelling.value = true;
   try {
-    await orderApi.cancel(orderToCancel.value.id.toString());
+    await orderApi.cancel(orderToCancel.value.id);
     log.success("订单取消成功", { orderId: orderToCancel.value.id });
     toast.success("订单已取消");
     await fetchOrders();

@@ -127,4 +127,59 @@ public class PdfConversionServiceImpl implements PdfConversionService {
     public String[] getSupportedTypes() {
         return SUPPORTED_TYPES.clone();
     }
+
+    @Override
+    public byte[] convertToPdf(byte[] content, String filename) {
+        log.info("Converting file to PDF for printing: {} ({} bytes)", filename, content.length);
+
+        // 如果已经是 PDF，直接返回
+        if (isPdf(filename)) {
+            log.debug("File is already PDF, returning as-is");
+            return content;
+        }
+
+        // 检查是否支持转换
+        if (!isConvertible(filename)) {
+            log.warn("File type not supported for conversion: {}", filename);
+            throw new BusinessException(400, "不支持的文件类型，请上传 PDF 或 Office 文档");
+        }
+
+        try {
+            // 使用 Gotenberg 的 LibreOffice 转换功能
+            ResponseEntity<InputStream> response = gotenbergClient.convertLibreOffice(
+                GotenbergClient.libreOfficeOptions()
+                    .file(new org.springframework.core.io.ByteArrayResource(content) {
+                        @Override
+                        public String getFilename() {
+                            return filename;
+                        }
+                    })
+            );
+
+            if (response == null || response.getBody() == null) {
+                log.error("Gotenberg returned null response for file: {}", filename);
+                throw new BusinessException(500, "文件转换失败：服务无响应");
+            }
+
+            // 将响应流读取到字节数组
+            InputStream pdfStream = response.getBody();
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[4096];
+            int nRead;
+            while ((nRead = pdfStream.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, nRead);
+            }
+            buffer.flush();
+
+            byte[] pdfBytes = buffer.toByteArray();
+            log.info("File converted successfully for printing: {} (PDF size: {} bytes)", filename, pdfBytes.length);
+            return pdfBytes;
+
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to convert file to PDF for printing: {}", filename, e);
+            throw new BusinessException(500, "文件转换失败: " + e.getMessage());
+        }
+    }
 }

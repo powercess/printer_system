@@ -27,6 +27,14 @@ public interface PdfConversionService {
     InputStream convertToPdf(MultipartFile file);
 
     /**
+     * 将字节数组转换为 PDF（用于打印时转换）
+     * @param content 文件内容
+     * @param filename 文件名（用于判断文件类型）
+     * @return 转换后的 PDF 字节数组
+     */
+    byte[] convertToPdf(byte[] content, String filename);
+
+    /**
      * 获取文件类型
      */
     String getFileType(String filename);

@@ -8,6 +8,7 @@ import com.powercess.printer_system.exception.BusinessException;
 import com.powercess.printer_system.mapper.OrderMapper;
 import com.powercess.printer_system.mapper.UserFileMapper;
 import com.powercess.printer_system.service.CupsClientService;
+import com.powercess.printer_system.service.PdfConversionService;
 import com.powercess.printer_system.service.PrinterService;
 import com.powercess.printer_system.service.StorageService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.cups4j.CupsPrinter;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +32,7 @@ public class PrinterServiceImpl implements PrinterService {
     private final OrderMapper orderMapper;
     private final CupsClientService cupsClientService;
     private final StorageService storageService;
+    private final PdfConversionService pdfConversionService;
 
     @Override
     public Map<String, Object> healthCheck() {
@@ -263,6 +266,10 @@ public class PrinterServiceImpl implements PrinterService {
             byte[] content = storageService.downloadBytes(actualPath);
             log.info("File content retrieved from storage: filePath={}, size={}bytes", actualPath, content.length);
 
+            // 转换为 PDF（所有文件都通过 Gotenberg 转换为 PDF 后打印）
+            byte[] pdfContent = pdfConversionService.convertToPdf(content, userFile.getDisplayName());
+            log.info("File converted to PDF for printing: originalSize={}, pdfSize={}bytes", content.length, pdfContent.length);
+
             // 获取打印机
             CupsPrinter printer = cupsClientService.getPrinter(printerName);
             if (printer == null) {
@@ -276,13 +283,15 @@ public class PrinterServiceImpl implements PrinterService {
             options.put("media", paperSize != null ? paperSize : "A4");
             options.put("ColorModel", colorMode != null && colorMode == 1 ? "RGB" : "Gray");
 
-            // 打印
+            // 打印 - 使用 printWithOptions 传入所有选项（发送转换后的 PDF）
             String jobName = "Order-" + orderId + "-" + userFile.getDisplayName();
-            int jobId = cupsClientService.printBytes(printerName, content, jobName, copies, options.get("sides"));
+            int jobId = cupsClientService.printWithOptions(printer, new ByteArrayInputStream(pdfContent), jobName, options);
+            log.info("Print job submitted: orderId={}, jobId={}, printer={}, options={}", orderId, jobId, printerName, options);
 
-            // 更新订单状态
+            // Update order status and store CUPS job ID
             Order order = orderMapper.selectById(orderId);
             if (order != null) {
+                order.setCupsJobId(jobId);
                 order.setStatus(2); // 打印中
                 order.setUpdatedAt(LocalDateTime.now());
                 orderMapper.updateById(order);
@@ -294,13 +303,34 @@ public class PrinterServiceImpl implements PrinterService {
             result.put("message", "打印任务已提交");
 
         } catch (BusinessException e) {
-            throw e;
+            // Update order status to failed on business exception
+            updateOrderStatusOnFailure(orderId);
+            log.error("Print execution failed (business error): orderId={}, error={}", orderId, e.getMessage());
+            result.put("success", false);
+            result.put("message", e.getMessage());
         } catch (Exception e) {
-            log.error("Print execution failed: {}", e.getMessage(), e);
+            // Update order status to failed on unexpected exception
+            updateOrderStatusOnFailure(orderId);
+            log.error("Print execution failed: orderId={}, error={}", orderId, e.getMessage(), e);
             result.put("success", false);
             result.put("message", "打印失败: " + e.getMessage());
         }
 
         return result;
+    }
+
+    private void updateOrderStatusOnFailure(Long orderId) {
+        if (orderId == null) return;
+        try {
+            Order order = orderMapper.selectById(orderId);
+            if (order != null && order.getStatus() < 3) {
+                order.setStatus(5); // failed
+                order.setUpdatedAt(LocalDateTime.now());
+                orderMapper.updateById(order);
+                log.info("Order status updated to failed: orderId={}", orderId);
+            }
+        } catch (Exception e) {
+            log.error("Failed to update order status: {}", e.getMessage());
+        }
     }
 }

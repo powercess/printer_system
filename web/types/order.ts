@@ -1,6 +1,6 @@
 // 订单相关类型
 
-export type OrderStatus = "pending" | "printing" | "completed" | "cancelled" | "failed";
+export type OrderStatus = "pending" | "paid" | "printing" | "completed" | "cancelled" | "failed";
 
 export interface Order {
   id: number;
@@ -29,6 +29,7 @@ export const ORDER_STATUS_MAP: Record<number, OrderStatus> = {
   2: "printing",
   3: "completed",
   4: "cancelled",
+  5: "failed",
 };
 
 export const STATUS_TO_NUMBER_MAP: Record<OrderStatus, number> = {
@@ -37,7 +38,7 @@ export const STATUS_TO_NUMBER_MAP: Record<OrderStatus, number> = {
   printing: 2,
   completed: 3,
   cancelled: 4,
-  failed: 4,
+  failed: 5,
 };
 
 export const COLOR_MODE_MAP: Record<number, "bw" | "color"> = {
