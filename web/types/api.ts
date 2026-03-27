@@ -40,5 +40,6 @@ export interface PriceEstimate {
   originalAmount: number;
   discountAmount: number;
   finalAmount: number;
-  pageCount: number;
+  pageCount: number; // PDF 页数
+  sheetCount: number; // 实际张数
 }

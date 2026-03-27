@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -154,6 +155,14 @@ public class PaymentServiceImpl implements PaymentService {
         String outTradeNo = "PRINT" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + order.getId();
         String payType = paymentMethod.equals("wechat") ? "wxpay" : "alipay";
 
+        // 计算含手续费的支付金额：原金额 * 1.02，向上取整到小数点后两位
+        BigDecimal baseAmount = order.getFinalAmount();
+        BigDecimal feeRate = new BigDecimal("1.02");
+        BigDecimal paymentAmount = baseAmount.multiply(feeRate)
+            .setScale(2, RoundingMode.CEILING); // 向上取整到小数点后两位
+
+        log.info("Third-party payment with fee: baseAmount={}, paymentAmount={}", baseAmount, paymentAmount);
+
         String notifyUrl = appProperties.baseUrl() + "/api/payment/notify";
         // returnUrl 使用前端地址，支付完成后直接跳转到前端支付结果页
         String returnUrl = appProperties.frontendUrl() + "/payment-result?outTradeNo=" + outTradeNo;
@@ -161,7 +170,7 @@ public class PaymentServiceImpl implements PaymentService {
         log.debug("Third-party payment request: outTradeNo={}, notifyUrl={}", outTradeNo, notifyUrl);
 
         Map<String, Object> payResult = createThirdPartyPayment(
-            outTradeNo, "打印订单" + order.getId(), order.getFinalAmount().toString(),
+            outTradeNo, "打印订单" + order.getId(), paymentAmount.toString(),
             notifyUrl, returnUrl, payType, clientIp
         );
 
@@ -173,19 +182,21 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = new Payment();
         payment.setOrderId(order.getId());
         payment.setUserId(userId);
-        payment.setAmount(order.getFinalAmount());
+        payment.setAmount(paymentAmount); // 记录含手续费的支付金额
         payment.setPaymentMethod(paymentMethod);
         payment.setPaymentType("order");
         payment.setMerchantId((String) payResult.get("trade_no"));
         payment.setTransactionId(outTradeNo);
         payment.setStatus(0);
         paymentMapper.insert(payment);
-        log.info("Third-party payment created: outTradeNo={}, tradeNo={}", outTradeNo, payResult.get("trade_no"));
+        log.info("Third-party payment created: outTradeNo={}, tradeNo={}, paymentAmount={}", outTradeNo, payResult.get("trade_no"), paymentAmount);
 
         Map<String, Object> result = new HashMap<>();
         result.put("paymentId", outTradeNo);
         result.put("tradeNo", payResult.get("trade_no"));
-        result.put("amount", order.getFinalAmount());
+        result.put("amount", paymentAmount);
+        result.put("baseAmount", baseAmount);
+        result.put("feeAmount", paymentAmount.subtract(baseAmount));
         result.put("status", 0);
         result.put("payurl", payResult.get("payurl"));
         result.put("qrcode", payResult.get("qrcode"));

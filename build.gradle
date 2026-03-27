@@ -40,6 +40,7 @@ dependencies {
     implementation 'org.cups4j:cups4j:0.7.9'
     implementation 'software.amazon.awssdk:s3'
     implementation 'io.github.ooraini:gotenberg-spring:0.4.0'
+    implementation 'org.apache.pdfbox:pdfbox:3.0.4'
 
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'

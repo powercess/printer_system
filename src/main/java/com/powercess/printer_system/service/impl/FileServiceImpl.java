@@ -11,9 +11,12 @@ import com.powercess.printer_system.exception.BusinessException;
 import com.powercess.printer_system.mapper.FileBlobMapper;
 import com.powercess.printer_system.mapper.UserFileMapper;
 import com.powercess.printer_system.service.FileService;
+import com.powercess.printer_system.service.PdfConversionService;
 import com.powercess.printer_system.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,6 +37,7 @@ public class FileServiceImpl implements FileService {
     private final UserFileMapper userFileMapper;
     private final FileBlobMapper fileBlobMapper;
     private final StorageService storageService;
+    private final PdfConversionService pdfConversionService;
 
     @Override
     @Transactional
@@ -164,16 +168,10 @@ public class FileServiceImpl implements FileService {
             log.info("New blob created: blobId={}, hash={}", blob.getId(), contentHash);
         }
 
-        // 计算页数（仅对新文件计算，复用文件不需要重新计算）
+        // 计算页数（始终重新计算以确保准确）
         int pageCount = 1;
-        if (isNewBlob && "pdf".equals(fileType)) {
-            pageCount = countPdfPages(blob.getStoragePath());
-            log.debug("PDF page count: {}", pageCount);
-        } else if (!isNewBlob) {
-            // 对于复用的文件，可能需要重新计算页数（因为用户可能选择了不同的文件名但内容相同）
-            // 这里简化处理，默认为1页，后续可以根据需要优化
-            pageCount = 1;
-        }
+        pageCount = countPdfPages(blob.getStoragePath());
+        log.info("File page count calculated: {} for blobId={}", pageCount, blob.getId());
 
         // 创建 UserFile 记录
         UserFile userFile = new UserFile();
@@ -405,7 +403,43 @@ public class FileServiceImpl implements FileService {
     }
 
     private int countPdfPages(String filePath) {
-        // TODO: 实现 PDF 页数计算
-        return 1;
+        log.info("Counting PDF pages for: {}", filePath);
+        try {
+            byte[] fileContent = storageService.downloadBytes(filePath);
+            if (fileContent == null) {
+                log.error("Download returned null for: {}", filePath);
+                return 1;
+            }
+            if (fileContent.length == 0) {
+                log.error("Empty file content for: {}", filePath);
+                return 1;
+            }
+            log.info("Downloaded file content: {} bytes for: {}", fileContent.length, filePath);
+
+            // Check if file is PDF by extension
+            boolean isPdf = filePath.toLowerCase().endsWith(".pdf");
+
+            byte[] pdfContent;
+            if (isPdf) {
+                pdfContent = fileContent;
+                log.debug("File is already PDF, using directly");
+            } else {
+                // Convert non-PDF file to PDF first
+                log.info("Converting non-PDF file to PDF for page counting: {}", filePath);
+                pdfContent = pdfConversionService.convertToPdf(fileContent, filePath);
+                log.info("Converted to PDF: {} bytes", pdfContent.length);
+            }
+
+            // Count pages using PDFBox
+            log.info("Loading PDF document with PDFBox, content size: {} bytes", pdfContent.length);
+            try (PDDocument document = Loader.loadPDF(pdfContent)) {
+                int pageCount = document.getNumberOfPages();
+                log.info("PDF page count: {} for file: {}", pageCount, filePath);
+                return pageCount;
+            }
+        } catch (Exception e) {
+            log.error("Failed to count PDF pages for: {}", filePath, e);
+            return 1;
+        }
     }
 }

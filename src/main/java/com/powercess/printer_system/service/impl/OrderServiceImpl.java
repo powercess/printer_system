@@ -161,17 +161,32 @@ public class OrderServiceImpl implements OrderService {
 
     private Map<String, BigDecimal> calculatePrice(int pageCount, int colorMode, int duplex,
                                                     int copies, Long promotionId, Long userId) {
-        log.trace("Calculating price: pageCount={}, colorMode={}, duplex={}, copies={}, promotionId={}",
+        log.debug("Calculating price: pageCount={}, colorMode={}, duplex={}, copies={}, promotionId={}",
             pageCount, colorMode, duplex, copies, promotionId);
-        BigDecimal basePrice = colorMode == 0 ? new BigDecimal("0.10") : new BigDecimal("0.50");
 
+        // 计算实际纸张张数
+        // 单面打印（duplex=0）：1页 = 1张
+        // 双面打印（duplex=1）：2页 = 1张（向上取整）
+        int sheetCount;
         if (duplex == 1) {
-            basePrice = basePrice.multiply(new BigDecimal("0.8"));
+            // 双面打印：每张纸可以打印2页
+            sheetCount = (pageCount + 1) / 2; // 等同于 Math.ceil(pageCount / 2.0)
+            log.debug("Duplex printing: {} pages = {} sheets", pageCount, sheetCount);
+        } else {
+            // 单面打印：1页 = 1张
+            sheetCount = pageCount;
+            log.debug("Simplex printing: {} pages = {} sheets", pageCount, sheetCount);
         }
 
-        BigDecimal originalAmount = basePrice.multiply(BigDecimal.valueOf(pageCount))
+        // 统一价格：0.2 元/张
+        BigDecimal basePrice = new BigDecimal("0.20");
+
+        BigDecimal originalAmount = basePrice.multiply(BigDecimal.valueOf(sheetCount))
             .multiply(BigDecimal.valueOf(copies))
             .setScale(2, RoundingMode.HALF_UP);
+
+        log.debug("Price calculation: {} sheets × {} yuan × {} copies = {} yuan",
+            sheetCount, basePrice, copies, originalAmount);
 
         BigDecimal discountAmount = BigDecimal.ZERO;
 
@@ -197,13 +212,14 @@ public class OrderServiceImpl implements OrderService {
         }
 
         Map<String, BigDecimal> result = new HashMap<>();
-        result.put("pageCount", BigDecimal.valueOf(pageCount));
+        result.put("pageCount", BigDecimal.valueOf(pageCount)); // PDF页数
+        result.put("sheetCount", BigDecimal.valueOf(sheetCount)); // 实际张数
         result.put("originalAmount", originalAmount);
         result.put("discountAmount", discountAmount);
         result.put("finalAmount", finalAmount);
 
-        log.debug("Price calculated: originalAmount={}, discountAmount={}, finalAmount={}",
-            originalAmount, discountAmount, finalAmount);
+        log.info("Price calculated: pageCount={}, sheetCount={}, originalAmount={}, discountAmount={}, finalAmount={}",
+            pageCount, sheetCount, originalAmount, discountAmount, finalAmount);
         return result;
     }
 

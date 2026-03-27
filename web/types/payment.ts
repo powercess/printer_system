@@ -33,7 +33,9 @@ export interface WalletPaymentResponse {
 export interface ThirdPartyPaymentResponse {
   paymentId: string;
   tradeNo: string;
-  amount: number;
+  amount: number; // 含手续费的支付金额
+  baseAmount: number; // 订单原价
+  feeAmount: number; // 手续费
   status: number;
   payurl: string;
   qrcode?: string;

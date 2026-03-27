@@ -274,7 +274,12 @@
             <p class="text-2xl font-bold text-primary">¥{{ estimatedPrice.finalAmount.toFixed(2) }}</p>
           </div>
           <div class="text-right">
-            <p class="text-sm text-gray-500">共 {{ estimatedPrice.pageCount }} 页</p>
+            <p class="text-sm text-gray-500">
+              共 {{ estimatedPrice.pageCount }} 页 / {{ estimatedPrice.sheetCount || estimatedPrice.pageCount }} 张
+            </p>
+            <p class="text-xs text-gray-400">
+              {{ printOptions.duplex ? '双面打印（2页=1张）' : '单面打印（1页=1张）' }}
+            </p>
             <p v-if="estimatedPrice.discountAmount > 0" class="text-xs text-green-600">
               已优惠 ¥{{ estimatedPrice.discountAmount.toFixed(2) }}
             </p>
@@ -314,7 +319,10 @@
           <div class="space-y-4">
             <div class="text-center">
               <p class="text-sm text-gray-500">支付金额</p>
-              <p class="text-3xl font-bold text-primary">¥{{ orderInfo?.finalAmount.toFixed(2) }}</p>
+              <p class="text-3xl font-bold text-primary">¥{{ paymentDisplayAmount }}</p>
+              <p v-if="selectedPaymentMethod !== 'wallet'" class="text-xs text-gray-400 mt-1">
+                (含2%手续费 ¥{{ feeAmount.toFixed(2) }})
+              </p>
             </div>
             <div class="space-y-2">
               <p class="text-sm text-gray-500">选择支付方式</p>
@@ -346,6 +354,9 @@
               </div>
               <p v-if="selectedPaymentMethod === 'wallet'" class="text-xs text-gray-500 text-center mt-2">
                 当前余额: ¥{{ userStore.balance.toFixed(2) }}
+              </p>
+              <p v-else class="text-xs text-orange-500 text-center mt-2">
+                微信/支付宝支付需支付2%手续费
               </p>
             </div>
           </div>
@@ -462,6 +473,24 @@ const printerOptions = computed(() =>
 
 // Ready file info (unified for both existing and newly uploaded)
 const readyFileInfo = computed(() => selectedExistingFile.value);
+
+// 计算手续费
+const feeAmount = computed(() => {
+  if (!orderInfo.value || selectedPaymentMethod.value === 'wallet') return 0;
+  const base = orderInfo.value.finalAmount;
+  // 2% 手续费，向上取整
+  return Math.ceil(base * 1.02 * 100) / 100 - base;
+});
+
+// 显示的支付金额
+const paymentDisplayAmount = computed(() => {
+  if (!orderInfo.value) return 0;
+  if (selectedPaymentMethod.value === 'wallet') {
+    return orderInfo.value.finalAmount;
+  }
+  // 微信/支付宝：原金额 * 1.02，向上取整
+  return Math.ceil(orderInfo.value.finalAmount * 1.02 * 100) / 100;
+});
 
 const getFileIcon = (type: string) => {
   if (type?.includes("pdf")) return "i-heroicons-outline-document-text";
